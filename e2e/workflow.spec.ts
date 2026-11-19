@@ -15,7 +15,8 @@ async function signUp(page: Page) {
 }
 
 // The e2e accounts use the technical test domain @stratiq.test; that address is data, not branding, so it is ignored here.
-const withoutTestEmails = (t: string) => t.replace(/[\w.+-]+@stratiq\.test/g, "");
+// Likewise, URLs on the existing hosting hostname (stratiq-ai.vercel.app) are addresses, not branding; they change at domain cutover.
+const withoutTestEmails = (t: string) => t.replace(/[\w.+-]+@stratiq\.test/g, "").replace(/https?:\/\/[\w.-]*stratiq[\w.-]*/g, "");
 
 /** Every page a visitor can see must carry the VELQORIN.ai brand and never the previous name. */
 async function expectBranded(page: Page, path: string) {
