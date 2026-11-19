@@ -13,6 +13,7 @@ if (fs.existsSync(".env.local")) {
 const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
 
+console.log("target database:", new URL(url).pathname.slice(1));
 const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
 await client.connect();
 await client.query("create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())");

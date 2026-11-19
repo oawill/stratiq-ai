@@ -10,7 +10,13 @@ if (fs.existsSync(".env.local")) {
 }
 
 export default async function globalTeardown() {
-  const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+  // Local runs clean up the database in .env.local, but only if it is marked as a development database.
+  // To clean up after running against a deployed site, set E2E_DATABASE_URL to the database that site uses.
+  const explicit = process.env.E2E_DATABASE_URL;
+  if (!explicit && !["development", "test"].includes(process.env.APP_ENV ?? "")) {
+    throw new Error("e2e teardown refused: set APP_ENV=development in .env.local, or E2E_DATABASE_URL explicitly.");
+  }
+  const url = explicit || process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
   if (!url) return;
   const c = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
   await c.connect();

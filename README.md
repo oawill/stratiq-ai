@@ -19,6 +19,18 @@ Apply `supabase/migrations/0001_early_access.sql` to any PostgreSQL (Supabase SQ
 ## Scripts
 `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test`
 
+## Environments and databases
+| | Database | Used by |
+|---|---|---|
+| Production | `neondb` (managed by the Vercel–Neon integration) | the deployed site only |
+| Development / tests | `stratiq_dev` (same Neon project, separate database) | `npm run dev`, `npm run test:py`, `npm run test:e2e` |
+
+- `.env.local` must point `DATABASE_URL` / `DATABASE_URL_UNPOOLED` at the **development** database and set `APP_ENV=development`. The Python tests, the e2e teardown and `stratiq.seed --reset` refuse to run unless `APP_ENV` is `development` or `test`.
+- **Do not run `vercel env pull` into `.env.local`**: it would overwrite the development URLs with production ones. Pull into `.env.production.local` if you need the production values.
+- Create the dev database once: `create database stratiq_dev;` (as the Neon owner role), then `node scripts/migrate.mjs` and `python -m stratiq.seed` (the migrate script prints the target database name).
+- After running the e2e suite against the deployed site, clean up its test accounts with `E2E_DATABASE_URL=<production url> npx playwright test` (the teardown only touches `e2e-*@stratiq.test` accounts).
+- Both databases share one Neon project and role. For full credential isolation, provision a second Neon resource.
+
 ## Deploy (Vercel)
 The Next.js app and the FastAPI service deploy together: `api/index.py` exposes the FastAPI app as a Python function and `vercel.json` rewrites `/api/v1/*` to it (the public docs are disabled in production, and every route requires the internal token).
 1. Apply the migrations to the production database (`node scripts/migrate.mjs`) and seed it once (`python -m stratiq.seed`).

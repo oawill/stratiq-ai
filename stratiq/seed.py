@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 
 import psycopg
 from psycopg.rows import dict_row
@@ -105,6 +106,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
     load_dotenv_local()
+    if args.reset and os.environ.get("APP_ENV") not in ("development", "test"):
+        raise SystemExit("--reset deletes data and is only allowed with APP_ENV=development or test")
 
     with psycopg.connect(database_url(), row_factory=dict_row, prepare_threshold=None) as conn:
         mv_id = ensure_model_version(conn)

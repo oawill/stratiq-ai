@@ -12,6 +12,9 @@ from psycopg.rows import dict_row
 from stratiq.db import database_url, load_dotenv_local
 
 load_dotenv_local()
+if os.environ.get("APP_ENV") not in ("development", "test"):
+    # These tests write to the database named in DATABASE_URL. Never let that be production by accident.
+    pytest.exit("Refusing to run: set APP_ENV=development (or test) and point DATABASE_URL at a NON-production database.", returncode=2)
 os.environ["INTERNAL_API_SECRET"] = "t" * 40
 
 import psycopg  # noqa: E402
