@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import type { Compare, Fixture, League, ResultRow, SportsInputs, SportsModelInfo, SportsOutputs, TeamRating } from "@/lib/types";
 import { Badge, Empty, ErrorPanel, Panel, dt, pct } from "../ui";
+import { useAdvanced } from "../useAdvanced";
 import { GoalsChart, Heatmap, Outcomes, Plain, RatingsTable } from "./Projection";
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -17,23 +18,6 @@ const post = <T,>(path: string, body: unknown) =>
   call<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 interface Saved { id: string; created_at: string; feature_cutoff: string; model: { name: string; version: string }; inputs: SportsInputs; outputs: SportsOutputs }
-
-const advListeners = new Set<() => void>();
-function readAdv() {
-  try { return localStorage.getItem("stratiq_adv") === "1"; } catch { return false; }
-}
-function useAdvanced() {
-  const adv = useSyncExternalStore(
-    (cb) => { advListeners.add(cb); return () => { advListeners.delete(cb); }; },
-    readAdv,
-    () => false,
-  );
-  const set = (v: boolean) => {
-    try { localStorage.setItem("stratiq_adv", v ? "1" : "0"); } catch {}
-    advListeners.forEach((l) => l());
-  };
-  return [adv, set] as const;
-}
 
 function ScoreLine({ r, team }: { r: ResultRow; team?: string }) {
   return (

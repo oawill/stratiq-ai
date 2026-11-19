@@ -26,6 +26,34 @@ def ensure_model_version(conn) -> str:
     return str(row["id"])
 
 
+SOLVER = {
+    "name": "nash-solver",
+    "version": "0.1.0",
+    "description": "Deterministic exact solver for two-player normal-form games: best responses, pure Nash equilibria, dominance, iterated elimination, 2x2 mixed equilibrium, Pareto analysis and exact payoff sensitivity. Payoffs are user assumptions.",
+    "assumptions": [
+        "Two players choose simultaneously from a finite set of pure strategies.",
+        "Payoffs are supplied by the user and treated as exact decimals.",
+        "Players are rational, know the payoff matrix, and maximise their own payoff.",
+    ],
+    "limitations": [
+        "Solves only what the entered payoffs imply; it does not estimate payoffs or forecast real competitor behaviour.",
+        "Mixed equilibria are computed only for 2x2 games.",
+        "Only pure-strategy dominance is analysed.",
+    ],
+}
+
+
+def ensure_solver_version(conn) -> str:
+    row = conn.execute(
+        """insert into model_versions (domain, name, version, description, status, assumptions, limitations)
+           values ('business', %s, %s, %s, 'active', %s, %s)
+           on conflict (name, version) do update set description = excluded.description
+           returning id""",
+        (SOLVER["name"], SOLVER["version"], SOLVER["description"], json.dumps(SOLVER["assumptions"]), json.dumps(SOLVER["limitations"])),
+    ).fetchone()
+    return str(row["id"])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true")
@@ -35,6 +63,7 @@ def main() -> None:
 
     with psycopg.connect(database_url(), row_factory=dict_row, prepare_threshold=None) as conn:
         mv_id = ensure_model_version(conn)
+        ensure_solver_version(conn)
         if args.reset:
             conn.execute("delete from sports_matches")
             conn.execute("delete from sports_teams")

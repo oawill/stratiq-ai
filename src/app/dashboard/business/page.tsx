@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { PageTitle } from "@/components/dashboard/ui";
+import { BusinessWorkspace } from "@/components/dashboard/business/BusinessWorkspace";
 
 export const metadata: Metadata = { title: "Business Strategy" };
 
 export default function Page() {
   return (
-    <ComingSoon
-      title="Business Strategy"
-      step="Step 3"
-      summary="Interactive game-theory workspace with a deterministic solver."
-      planned={["Define two competitors and their strategies","Enter payoffs and generate a payoff matrix","Pure Nash equilibria, best responses, dominant strategies","Payoff sensitivity analysis","Save and compare scenarios"]}
-      note="Equilibria will be computed by a deterministic solver, never by a language model."
-    />
+    <>
+      <PageTitle
+        title="Business Strategy"
+        sub="Define two competitors, enter payoffs, and an exact, deterministic solver finds equilibria, best responses and dominant strategies. Nothing here is a forecast of real competitor behavior."
+      />
+      <BusinessWorkspace />
+    </>
   );
 }

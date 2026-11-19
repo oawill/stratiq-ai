@@ -87,3 +87,42 @@ export interface SportsModelInfo {
   model: { name: string; version: string; description: string; status: string; assumptions: string[]; limitations: string[] };
   metrics: MetricRow[];
 }
+
+// ---- Business Strategy ----
+export interface Cell { row: number; col: number }
+export interface Dominance {
+  strictly_dominant: number | null;
+  weakly_dominant: number | null;
+  strictly_dominated: { strategy: number; by: number }[];
+  weakly_dominated: { strategy: number; by: number }[];
+}
+export interface GameAnalysis {
+  pure_nash: (Cell & { payoffs: [number, number] })[];
+  best_responses: { row_to_col: number[][]; col_to_row: number[][] };
+  dominance: { row: Dominance; col: Dominance };
+  iterated_elimination: { steps: { player: "row" | "col"; eliminated: number; by: number }[]; remaining_rows: number[]; remaining_cols: number[] };
+  mixed_2x2: { row_probs: number[]; col_probs: number[]; row_probs_exact: string[]; col_probs_exact: string[]; expected_payoffs: number[] } | null;
+  pareto_optimal: Cell[];
+  max_welfare: { value: number; cells: Cell[] };
+  notes: string[];
+}
+export interface SensitivityResult {
+  player: "row" | "col";
+  cell: Cell;
+  range: [number, number];
+  thresholds: number[];
+  segments: { from: number; to: number; pure_nash: Cell[] }[];
+  at_points: { value: number; pure_nash: Cell[] }[];
+}
+export interface ScenarioListRow { id: string; title: string; created_at: string; created_by_name: string; players: string[]; rows_n: number; cols_n: number; nash_n: number | null }
+export interface ScenarioFull {
+  id: string; title: string; created_at: string; notes: string | null; players: string[];
+  row_strategies: string[]; col_strategies: string[]; payoffs: number[][][]; analysis: GameAnalysis;
+}
+export interface CompareRow {
+  id: string; title: string; players: string[]; row_strategies: string[]; col_strategies: string[];
+  pure_nash: { row: string; col: string; payoffs: [number, number] }[];
+  row_dominant: string | null; col_dominant: string | null;
+  max_welfare: { value: number; cells: { row: string; col: string }[] };
+  mixed_2x2: GameAnalysis["mixed_2x2"]; notes: string[];
+}

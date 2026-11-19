@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from . import model as sports_model
 from .db import get_conn, load_dotenv_local
+from .security import Auth, Principal, principal, require_write  # noqa: F401
 from .model import HistMatch, input_hash, predict
 
 load_dotenv_local()
@@ -27,49 +28,6 @@ load_dotenv_local()
 app = FastAPI(title="STRATIQ AI API", version="1.0.0", docs_url="/api/v1/docs", openapi_url="/api/v1/openapi.json")
 router = APIRouter(prefix="/api/v1")
 
-WRITE_ROLES = {"owner", "admin", "member"}
-
-
-# ---------------------------------------------------------------- auth
-@dataclass(frozen=True)
-class Principal:
-    user_id: str
-    workspace_id: str
-    role: str
-
-
-def principal(authorization: Annotated[str | None, Header()] = None, conn=Depends(get_conn)) -> Principal:
-    secret = os.environ.get("INTERNAL_API_SECRET", "")
-    if len(secret) < 32:
-        raise HTTPException(503, "Service is not configured")
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(401, "Missing credentials")
-    try:
-        claims = jwt.decode(
-            authorization[7:], secret, algorithms=["HS256"], issuer="stratiq-web",
-            options={"require": ["exp", "sub", "wid", "iss"]},
-        )
-    except jwt.PyJWTError:
-        raise HTTPException(401, "Invalid or expired credentials")
-    try:
-        uuid.UUID(str(claims["sub"])), uuid.UUID(str(claims["wid"]))
-    except ValueError:
-        raise HTTPException(401, "Invalid credentials")
-    row = conn.execute(
-        "select role from workspace_members where user_id=%s and workspace_id=%s",
-        (claims["sub"], claims["wid"]),
-    ).fetchone()
-    if not row:
-        raise HTTPException(403, "Not a member of this workspace")
-    return Principal(str(claims["sub"]), str(claims["wid"]), row["role"])
-
-
-Auth = Annotated[Principal, Depends(principal)]
-
-
-def require_write(p: Principal) -> None:
-    if p.role not in WRITE_ROLES:
-        raise HTTPException(403, "Your role is read-only")
 
 
 def _now() -> datetime:
@@ -360,4 +318,7 @@ def sports_model_info(p: Auth, conn=Depends(get_conn)):
     return {"model": mv, "metrics": metrics}
 
 
+from .business_api import router as business_router  # noqa: E402
+
 app.include_router(router)
+app.include_router(business_router)

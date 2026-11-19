@@ -33,7 +33,7 @@ def get_pool() -> ConnectionPool:
     if _pool is None:
         _pool = ConnectionPool(
             database_url(),
-            min_size=0,
+            min_size=1,
             max_size=4,
             kwargs={"row_factory": dict_row, "prepare_threshold": None},
             open=True,

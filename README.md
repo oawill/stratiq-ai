@@ -39,14 +39,15 @@ Import the repo, set the env vars from `.env.example`, deploy. Apply the migrati
 
 ---
 
-## Application (Phase 2 — Steps 1 & 2)
+## Application (Phase 2 — Steps 1–3)
 
-Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Prediction History, Workspace, Settings. Business, Politics, Finance and Simulation Lab pages exist only as clearly labeled "not built yet" placeholders.
+Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Business Strategy (game-theory solver), Prediction History, Workspace, Settings. Politics, Finance and Simulation Lab pages exist only as clearly labeled "not built yet" placeholders.
 
 ### Architecture
 - **Next.js** handles pages and sessions (scrypt passwords; session cookie token stored only as a SHA-256 hash in Postgres).
 - **FastAPI** (`stratiq/api.py`, versioned at `/api/v1`) owns all analytics. Browsers never call it directly: Next mints a 60-second HS256 token (`INTERNAL_API_SECRET`) per request, and the API re-verifies workspace membership in the database on every call.
 - **Engine** (`stratiq/`): `poisson.py` (scoreline math), `ratings.py` (Maher-style attack/defence fit), `model.py` (prediction + assumptions), `backtest.py` (rolling-origin evaluation), `dataset.py` (seeded FICTIONAL leagues).
+- **Business Strategy** (`stratiq/gametheory.py`, `stratiq/business_api.py`): exact rational-arithmetic solver for two-player games up to 8×8 — best responses, pure Nash, strict/weak dominance, iterated elimination, Pareto/welfare, completely mixed equilibrium (2×2 only) and exact piecewise payoff sensitivity. Scenarios are saved per workspace and can be compared (2–4). No LLM is involved.
 - Predictions are immutable (DB trigger). Each stores model version, feature cutoff, inputs, outputs, assumptions and an input hash.
 
 ### Local setup
@@ -63,6 +64,7 @@ Extra env vars: `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (default `http:/
 `npm test` (TypeScript math) · `.venv/Scripts/python -m pytest` (engine unit tests + API integration tests; each API test runs in a transaction that is always rolled back).
 
 ### Limitations
+- Business payoffs are user-entered assumptions; templates are illustrative, not market data. Mixed equilibria exist only for 2×2 games; there is no support-enumeration solver for larger games, and no weak-dominance elimination.
 - All sports data is **fictional**; backtest metrics are on simulated data and say nothing about real-world accuracy.
 - The Python API is not yet configured for Vercel deployment; the deployed marketing site does not include the dashboard until that is done.
 - Dev and the deployed site share one Neon database.

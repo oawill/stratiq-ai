@@ -27,7 +27,7 @@ export default async function Page() {
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Forecasts saved" value={o.counts.predictions} hint="in this workspace" />
         <Stat label="Saved simulations" value={o.counts.simulations} hint="Simulation Lab coming" />
-        <Stat label="Saved scenarios" value={o.saved_scenarios} hint="Business module coming" />
+        <Stat label="Saved scenarios" value={o.saved_scenarios} hint="Business Strategy" />
         <Stat label="Models registered" value={o.models.length} hint="see below" />
       </div>
 
@@ -76,7 +76,7 @@ export default async function Page() {
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-muted">Business, Political, Financial and Simulation models are not built yet and are not listed.</p>
+          <p className="mt-3 text-xs text-muted">Political, Financial and Simulation models are not built yet and are not listed.</p>
         </Panel>
 
         <Panel title="Saved simulations" className="lg:col-span-1">
