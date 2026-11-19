@@ -81,7 +81,7 @@ def overview(p: Auth, conn=Depends(get_conn)):
         (ws,),
     ).fetchall()
     sims = conn.execute(
-        "select id, domain, status, created_at from simulation_runs where workspace_id=%s order by created_at desc limit 5",
+        "select id, title, domain, status, progress, created_at from simulation_runs where workspace_id=%s order by created_at desc limit 5",
         (ws,),
     ).fetchall()
     scenarios = conn.execute(
@@ -319,6 +319,8 @@ def sports_model_info(p: Auth, conn=Depends(get_conn)):
 
 
 from .business_api import router as business_router  # noqa: E402
+from .simulation_api import router as simulation_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
+app.include_router(simulation_router)

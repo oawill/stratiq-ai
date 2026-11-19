@@ -26,7 +26,7 @@ export default async function Page() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Forecasts saved" value={o.counts.predictions} hint="in this workspace" />
-        <Stat label="Saved simulations" value={o.counts.simulations} hint="Simulation Lab coming" />
+        <Stat label="Saved simulations" value={o.counts.simulations} hint="Simulation Lab" />
         <Stat label="Saved scenarios" value={o.saved_scenarios} hint="Business Strategy" />
         <Stat label="Models registered" value={o.models.length} hint="see below" />
       </div>
@@ -76,12 +76,12 @@ export default async function Page() {
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-muted">Political, Financial and Simulation models are not built yet and are not listed.</p>
+          <p className="mt-3 text-xs text-muted">Political and Financial models are not built yet and are not listed.</p>
         </Panel>
 
         <Panel title="Saved simulations" className="lg:col-span-1">
           {o.saved_simulations.length === 0 ? (
-            <Empty>None yet. The Simulation Lab arrives in a later step.</Empty>
+            <Empty>None yet. Run one in the Simulation Lab.</Empty>
           ) : (
             <ul className="space-y-2 text-sm">{o.saved_simulations.map((x) => <li key={x.id}>{x.domain} · {x.status} · {dt(x.created_at)}</li>)}</ul>
           )}

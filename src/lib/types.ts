@@ -126,3 +126,37 @@ export interface CompareRow {
   max_welfare: { value: number; cells: { row: string; col: string }[] };
   mixed_2x2: GameAnalysis["mixed_2x2"]; notes: string[];
 }
+
+// ---- Simulation Lab ----
+export type DistType = "normal" | "lognormal" | "uniform" | "triangular" | "beta" | "bernoulli" | "binomial" | "poisson" | "constant" | "discrete";
+export interface OutputStats {
+  mean: number; sd: number; min: number; max: number; p05: number; p25: number; p50: number; p75: number; p95: number;
+  se_mean: number; ci95_mean: [number, number];
+}
+export interface SimOutput {
+  expr: string;
+  stats: OutputStats;
+  histogram: { edges: number[]; counts: number[] };
+  prob_above: { threshold: number; p: number; se: number } | null;
+  sensitivity: { variable: string; spearman: number }[];
+  convergence: { n: number; mean: number }[];
+}
+export interface SimResult {
+  engine_version: string; python_version: string; iterations: number; seed: number; result_hash: string; runtime_ms: number;
+  outputs: Record<string, SimOutput>;
+  inputs: Record<string, { dist: Record<string, unknown>; realised_mean: number; realised_sd: number; realised_min: number; realised_max: number }>;
+}
+export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export interface SimRunRow { id: string; title: string; domain: string; status: RunStatus; progress: number; iterations: number; seed: number; created_at: string; finished_at: string | null; created_by_name: string }
+export interface SimRun extends SimRunRow {
+  config: { variables: { name: string; dist: Record<string, unknown> }[]; outputs: { name: string; expr: string; threshold?: number | null }[]; notes?: string | null };
+  result: SimResult | null; error: string | null; started_at: string | null;
+}
+export interface SimCompare {
+  outputs: {
+    output: string;
+    runs: ({ title: string; iterations: number; seed: number; mean: number; sd: number; p05: number; p50: number; p95: number; se_mean: number; prob_above: { threshold: number; p: number } | null } | null)[];
+    diff_vs_first: ({ mean_diff: number; se: number; ci95: [number, number] } | null)[];
+  }[];
+  runs: { id: string; title: string; domain: string; iterations: number; seed: number; histograms: Record<string, { edges: number[]; counts: number[] }> }[];
+}

@@ -54,6 +54,21 @@ def ensure_solver_version(conn) -> str:
     return str(row["id"])
 
 
+def ensure_monte_carlo_version(conn) -> str:
+    row = conn.execute(
+        """insert into model_versions (domain, name, version, description, status, assumptions, limitations)
+           values ('simulation', 'monte-carlo', '0.1.0', %s, 'active', %s, %s)
+           on conflict (name, version) do update set description = excluded.description
+           returning id""",
+        (
+            "Seeded Monte Carlo engine: draws input variables from user-chosen probability distributions, evaluates user formulas, and reports distributions, probabilities and rank-correlation sensitivity.",
+            json.dumps(["Input variables are independent.", "The distributions and formulas are the user's assumptions.", "Same seed and configuration reproduce the same draws on the same Python version."]),
+            json.dumps(["Results describe the entered model, not real-world outcomes.", "No correlation between inputs, no time dynamics.", "Sensitivity is rank correlation, not a causal or variance-decomposition measure."]),
+        ),
+    ).fetchone()
+    return str(row["id"])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true")
@@ -64,6 +79,7 @@ def main() -> None:
     with psycopg.connect(database_url(), row_factory=dict_row, prepare_threshold=None) as conn:
         mv_id = ensure_model_version(conn)
         ensure_solver_version(conn)
+        ensure_monte_carlo_version(conn)
         if args.reset:
             conn.execute("delete from sports_matches")
             conn.execute("delete from sports_teams")

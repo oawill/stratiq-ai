@@ -25,7 +25,7 @@ export const DASH_NAV: DashNav[] = [
   { label: "Business Strategy", href: "/dashboard/business", icon: Briefcase, keywords: "game theory nash payoff pricing", status: "live" },
   { label: "Political Intelligence", href: "/dashboard/politics", icon: Landmark, keywords: "coalition voting power policy", status: "soon" },
   { label: "Financial Intelligence", href: "/dashboard/finance", icon: LineChart, keywords: "portfolio var risk monte carlo", status: "soon" },
-  { label: "Simulation Lab", href: "/dashboard/simulations", icon: Beaker, keywords: "monte carlo seed scenario", status: "soon" },
+  { label: "Simulation Lab", href: "/dashboard/simulations", icon: Beaker, keywords: "monte carlo seed scenario", status: "live" },
   { label: "Prediction History", href: "/dashboard/history", icon: History, keywords: "forecasts past saved", status: "live" },
   { label: "My Workspace", href: "/dashboard/workspace", icon: FolderKanban, keywords: "team members organization", status: "live" },
   { label: "Settings", href: "/dashboard/settings", icon: Settings, keywords: "account profile", status: "live" },
