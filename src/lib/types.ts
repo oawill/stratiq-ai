@@ -160,3 +160,36 @@ export interface SimCompare {
   }[];
   runs: { id: string; title: string; domain: string; iterations: number; seed: number; histograms: Record<string, { edges: number[]; counts: number[] }> }[];
 }
+
+// ---- Political Intelligence ----
+export interface PolParty {
+  name: string; seats: number; seat_share: number; shapley_shubik: number; shapley_shubik_exact: string;
+  banzhaf_raw_swings: number; banzhaf_normalised: number; banzhaf_probability: number;
+  is_dictator: boolean; is_veto: boolean; is_dummy: boolean;
+}
+export interface PolCoalition {
+  total_seats: number; quota_fraction: number; seats_needed: number; parties: PolParty[];
+  winning_coalitions: number; minimal_winning_count: number;
+  minimal_winning: { parties: number[]; seats: number; surplus: number; size: number; ideological_range: number | null; connected: boolean | null }[];
+  connected_minimal_winning: number | null; single_party_majority: string[]; notes: string[]; notice: string;
+}
+export interface PolAllocate { parties: { name: string; votes: number; vote_share: number; seats: number; seat_share: number }[] }
+export interface PolSimulation {
+  seed: number; iterations: number; seats_needed: number; p_no_single_party_majority: number; note: string;
+  parties: { name: string; mean_seats: number; p05_seats: number; p95_seats: number; p_largest: number; p_single_party_majority: number; p_decisive_in_some_coalition: number; p_veto: number }[];
+  candidates: { parties: number[]; p_winning: number; p_minimal_winning: number }[];
+}
+export interface PolEval { votes: number[]; vote_share: number[]; seats: number[]; largest: string; majority_party: string | null; turnout_overall: number }
+export interface PolTurnout {
+  parties: string[]; baseline: PolEval; notice: string;
+  sweep?: { mode: string; bloc: number | null; range: [number, number]; curve: { x: number; overall_turnout: number; vote_share: number[]; seats: number[] }[]; changes: { at: number; what: string[]; seats_before: number[]; seats_after: number[] }[]; note: string };
+}
+export interface PolPolicy {
+  weights_normalised: number[]; ranking: string[]; seed: number; samples: number; notes: string[]; notice: string;
+  alternatives: { name: string; normalised: number[]; weighted_score: number; rank: number; pareto_optimal: boolean; rank_probabilities: number[]; p_top: number; expected_rank: number }[];
+  weight_sensitivity: { criterion: string; current_weight: number; segments: { from: number; to: number; top: string[] }[]; stable_range: [number, number] | null; note?: string }[];
+}
+export type PolKind = "coalition" | "turnout" | "policy";
+export interface PolScenarioRow { id: string; title: string; created_at: string; created_by_name: string; kind: PolKind }
+export interface PolScenarioFull { id: string; title: string; kind: PolKind; notes: string | null; inputs: Record<string, unknown> }
+export interface PolCompare { kind: PolKind; scenarios: { id: string; title: string; summary: Record<string, any> }[] } // eslint-disable-line @typescript-eslint/no-explicit-any

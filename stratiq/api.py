@@ -320,7 +320,9 @@ def sports_model_info(p: Auth, conn=Depends(get_conn)):
 
 from .business_api import router as business_router  # noqa: E402
 from .simulation_api import router as simulation_router  # noqa: E402
+from .politics_api import router as politics_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
 app.include_router(simulation_router)
+app.include_router(politics_router)

@@ -69,6 +69,21 @@ def ensure_monte_carlo_version(conn) -> str:
     return str(row["id"])
 
 
+def ensure_politics_version(conn) -> str:
+    row = conn.execute(
+        """insert into model_versions (domain, name, version, description, status, assumptions, limitations)
+           values ('politics', 'political-scenario-tools', '0.1.0', %s, 'active', %s, %s)
+           on conflict (name, version) do update set description = excluded.description
+           returning id""",
+        (
+            "Exact scenario tools for aggregate political analysis: Shapley-Shubik and Banzhaf voting power, minimal winning coalitions, D'Hondt / Sainte-Lague / Hare seat allocation, turnout sensitivity, seeded election-uncertainty simulation, and multi-criteria policy trade-off analysis.",
+            json.dumps(["All inputs (seats, vote shares, turnout, weights) are user-entered assumptions.", "Parties act only through seat counts; coalition arithmetic ignores policy compatibility unless positions are given.", "Voting blocs are aggregate groups; no individual-level data is used."]),
+            json.dumps(["Not a poll and not a validated election forecast.", "Election-uncertainty noise is a scenario knob, not a measured polling error.", "Seat allocation covers a single national list; no districts, thresholds by region, or compensatory seats.", "Policy weights are value judgements, not facts."]),
+        ),
+    ).fetchone()
+    return str(row["id"])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true")
@@ -80,6 +95,7 @@ def main() -> None:
         mv_id = ensure_model_version(conn)
         ensure_solver_version(conn)
         ensure_monte_carlo_version(conn)
+        ensure_politics_version(conn)
         if args.reset:
             conn.execute("delete from sports_matches")
             conn.execute("delete from sports_teams")
