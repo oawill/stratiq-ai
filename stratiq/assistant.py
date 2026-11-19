@@ -1,4 +1,4 @@
-"""The STRATIQ AI assistant: explains structured results, never produces them.
+"""The VELQORIN.ai assistant: explains structured results, never produces them.
 
 Two modes:
   * deterministic (always available): sentences assembled from the engines' own numbers (see explain.py);
@@ -13,6 +13,7 @@ import json
 import os
 from typing import Callable
 
+from .brand import NAME
 from .explain import Facts, verify_grounded
 
 MAX_NARRATIVE = 1800
@@ -26,7 +27,7 @@ FOCUS_PROMPT = {
     "all": "Explain what the results show, how uncertain they are, what they assume, their limitations, and which scenarios to explore next.",
 }
 SYSTEM = (
-    "You are the explainer inside STRATIQ AI, an analysis workspace. You explain results that were computed by exact or seeded "
+    f"You are the explainer inside {NAME}, an analysis workspace. You explain results that were computed by exact or seeded "
     "engines. You do not compute results.\n"
     "Rules:\n"
     "1. Use ONLY numbers that appear in the FACTS block. Never calculate a new number, never extrapolate, never estimate. You may round a given number.\n"

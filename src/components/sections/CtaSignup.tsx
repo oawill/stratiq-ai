@@ -1,4 +1,5 @@
 import { Container } from "../ui/primitives";
+import { brand } from "@/lib/brand";
 import { EarlyAccessForm } from "../EarlyAccessForm";
 
 export function CtaSignup({ source = "home" }: { source?: string }) {
@@ -12,7 +13,7 @@ export function CtaSignup({ source = "home" }: { source?: string }) {
             Make better decisions <span className="text-gradient">under uncertainty.</span>
           </h2>
           <p className="mt-4 max-w-lg text-muted">
-            STRATIQ AI does not promise certainty. Join the early-access list and help shape a platform
+            {brand.name} does not promise certainty. Join the early-access list and help shape a platform
             built on transparent models, honest probabilities, and strategic reasoning.
           </p>
         </div>

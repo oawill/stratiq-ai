@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/lib/brand";
 import { Logo } from "./Logo";
 import { Container } from "./ui/primitives";
 import { DOMAINS } from "@/lib/site";
@@ -39,12 +40,12 @@ export function Footer() {
         </div>
         <div className="text-sm leading-relaxed text-muted">
           <h2 className="mb-3 text-sm font-semibold text-ink">Important</h2>
-          STRATIQ AI provides probabilistic analysis, not certainty, and not financial, legal, or betting
+          {brand.name} provides probabilistic analysis, not certainty, and not financial, legal, or betting
           advice. All figures on this site are labeled demonstration or sample data unless stated otherwise.
         </div>
       </Container>
       <div className="border-t border-line py-5 text-center text-xs text-muted">
-        © 2026 STRATIQ AI. All rights reserved.
+        © 2026 {brand.name}. All rights reserved.
       </div>
     </footer>
   );

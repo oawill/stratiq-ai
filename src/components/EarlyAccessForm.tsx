@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { brand } from "@/lib/brand";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "./ui/primitives";
 import { INTERESTS, USES } from "@/lib/signup";
@@ -110,7 +111,7 @@ export function EarlyAccessForm({ source = "website" }: { source?: string }) {
       <div>
         <label className="flex items-start gap-3 text-sm text-muted">
           <input type="checkbox" name="consent" className="mt-1 h-4 w-4 accent-[#8055f6]" aria-invalid={!!fe.consent} />
-          <span>I agree to be contacted about STRATIQ AI early access and to my details being stored for that purpose.</span>
+          <span>I agree to be contacted about {brand.name} early access and to my details being stored for that purpose.</span>
         </label>
         {err("consent")}
       </div>

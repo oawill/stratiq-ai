@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { PricingTable } from "@/components/sections/PricingTable";
 import { Container } from "@/components/ui/primitives";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "Proposed launch pricing for STRATIQ AI. Billing is not live yet; all plans lead to early-access registration.",
+  description: `Proposed launch pricing for ${brand.name}. Billing is not live yet; all plans lead to early-access registration.`,
   alternates: { canonical: "/pricing" },
 };
 

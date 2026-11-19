@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
 from . import finance as fin
+from .brand import NAME
 from .db import get_conn
 from .security import ADMIN_ROLES, Auth, require_write
 
@@ -121,7 +122,7 @@ def data_sources(p: Auth):
     requested = os.environ.get("FINANCE_DATA_PROVIDER") or None
     return {
         "configured": False, "requested_provider": requested,
-        "message": ("No market-data provider is configured, so no historical market data is available in STRATIQ AI. "
+        "message": (f"No market-data provider is configured, so no historical market data is available in {NAME}. "
                     "You can analyse return series you supply yourself; they are used as-is and are not verified. "
                     "Only supply data you are permitted to use."),
         "user_supplied_series": True, "automated_trading": False,

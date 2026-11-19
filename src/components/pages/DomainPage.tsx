@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { brand } from "@/lib/brand";
 import { ButtonLink, Container, Eyebrow, PreviewBadge } from "../ui/primitives";
 import { CtaSignup } from "../sections/CtaSignup";
 import { DOMAINS, type Domain } from "@/lib/site";
@@ -69,7 +70,7 @@ export function DomainPage({ slug }: { slug: Domain["slug"] }) {
             <p className="mt-6 rounded-lg border border-line bg-bg/60 p-3 text-xs text-muted">
               {slug === "politics"
                 ? "Political modeling is nonpartisan, aggregate, and scenario-based. It does not target individuals or endorse any party or candidate."
-                : "Financial analysis is educational scenario modeling, not investment advice. STRATIQ AI is not a licensed financial advisor."}
+                : "Financial analysis is educational scenario modeling, not investment advice. " + brand.name + " is not a licensed financial advisor."}
             </p>
           )}
         </div>

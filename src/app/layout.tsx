@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { brand } from "@/lib/brand";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
@@ -6,23 +7,15 @@ import { SITE_URL } from "@/lib/site";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-const description =
-  "AI-powered predictions, game-theoretic simulations, and scenario planning across sports, business, politics, and financial markets.";
+const title = `${brand.name} — ${brand.tagline}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: {
-    default: "STRATIQ AI — Predict. Simulate. Strategize.",
-    template: "%s | STRATIQ AI",
-  },
-  description,
-  openGraph: {
-    type: "website",
-    siteName: "STRATIQ AI",
-    title: "STRATIQ AI — Strategic Intelligence for a Complex World",
-    description,
-  },
-  twitter: { card: "summary_large_image", title: "STRATIQ AI", description },
+  applicationName: brand.name,
+  title: { default: title, template: `%s | ${brand.name}` },
+  description: brand.shortDescription,
+  openGraph: { type: "website", siteName: brand.name, title, description: brand.shortDescription, locale: "en_US" },
+  twitter: { card: "summary_large_image", title, description: brand.shortDescription },
 };
 
 export const viewport: Viewport = { themeColor: "#080D1B", colorScheme: "dark" };
@@ -30,9 +23,11 @@ export const viewport: Viewport = { themeColor: "#080D1B", colorScheme: "dark" }
 const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "STRATIQ AI",
+  name: brand.name,
+  alternateName: brand.shortName,
   url: SITE_URL,
-  slogan: "Predict. Simulate. Strategize.",
+  slogan: brand.tagline,
+  description: brand.description,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

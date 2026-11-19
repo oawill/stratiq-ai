@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { Container } from "@/components/ui/primitives";
 import { CtaSignup } from "@/components/sections/CtaSignup";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "STRATIQ AI helps people make better decisions under uncertainty.",
+  description: `${brand.name} helps people make better decisions under uncertainty.`,
   alternates: { canonical: "/about" },
 };
 
@@ -12,10 +13,10 @@ export default function Page() {
   return (
     <>
       <Container className="max-w-3xl py-16">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">About STRATIQ AI</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">About {brand.name}</h1>
         <div className="mt-8 space-y-5 text-lg leading-relaxed text-muted">
           <p>
-            STRATIQ AI is an early-stage strategic intelligence platform combining machine learning,
+            {brand.name} is an early-stage predictive analytics and strategic intelligence platform combining machine learning,
             probability modeling, game theory, and Monte Carlo simulation across sports, business,
             politics, and finance.
           </p>

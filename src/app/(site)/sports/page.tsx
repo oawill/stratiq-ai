@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { DomainPage } from "@/components/pages/DomainPage";
 import { DOMAINS } from "@/lib/site";
 
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
   title: d.name,
   description: d.description,
   alternates: { canonical: "/sports" },
-  openGraph: { title: d.name + " | STRATIQ AI", description: d.description },
+  openGraph: { title: `${d.name} | ${brand.name}`, description: d.description },
 };
 
 export default function Page() {

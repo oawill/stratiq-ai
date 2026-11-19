@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { brand } from "@/lib/brand";
 import { Download, Loader2, Play, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { call, post } from "@/lib/client";
 import type { DistType, SimCompare, SimRun, SimRunRow } from "@/lib/types";
@@ -399,7 +400,7 @@ export function SimWorkspace() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Simulation Lab" className="inline-flex rounded-xl border border-line bg-bg/60 p-1" onKeyDown={(e) => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") setTab(tab === "new" ? "runs" : "new"); }}>
+        <div role="tablist" aria-label={brand.products.simlab.name} className="inline-flex rounded-xl border border-line bg-bg/60 p-1" onKeyDown={(e) => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") setTab(tab === "new" ? "runs" : "new"); }}>
           {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === id ? "bg-primary text-white" : "text-muted hover:text-ink"}`}>{label}</button>)}
         </div>
         <Badge tone="amber">Inputs are your assumptions</Badge>

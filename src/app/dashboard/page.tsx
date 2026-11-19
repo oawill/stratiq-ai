@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/lib/brand";
 import { Activity, ArrowRight, History } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
@@ -26,8 +27,8 @@ export default async function Page() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Forecasts saved" value={o.counts.predictions} hint="in this workspace" />
-        <Stat label="Saved simulations" value={o.counts.simulations} hint="Simulation Lab" />
-        <Stat label="Saved scenarios" value={o.saved_scenarios} hint="Business Strategy" />
+        <Stat label="Saved simulations" value={o.counts.simulations} hint={brand.products.simlab.name} />
+        <Stat label="Saved scenarios" value={o.saved_scenarios} hint={brand.products.strategy.name} />
         <Stat label="Models registered" value={o.models.length} hint="see below" />
       </div>
 
@@ -45,7 +46,7 @@ export default async function Page() {
 
         <Panel title="Recent forecasts" className="lg:col-span-2" badge={<Link href="/dashboard/history" className="text-xs text-violet underline">View all</Link>}>
           {o.recent_predictions.length === 0 ? (
-            <Empty>No forecasts yet. Open Sports Intelligence, pick a fixture, and save a forecast.</Empty>
+            <Empty>No forecasts yet. Open {brand.products.sports.name}, pick a fixture, and save a forecast.</Empty>
           ) : (
             <ul className="divide-y divide-line">
               {o.recent_predictions.map((p) => (
@@ -81,7 +82,7 @@ export default async function Page() {
 
         <Panel title="Saved simulations" className="lg:col-span-1">
           {o.saved_simulations.length === 0 ? (
-            <Empty>None yet. Run one in the Simulation Lab.</Empty>
+            <Empty>None yet. Run one in {brand.products.simlab.name}.</Empty>
           ) : (
             <ul className="space-y-2 text-sm">{o.saved_simulations.map((x) => <li key={x.id}>{x.domain} · {x.status} · {dt(x.created_at)}</li>)}</ul>
           )}

@@ -17,18 +17,18 @@ import { matchProbabilities } from "@/lib/poisson";
 const SIDEBAR = [
   { label: "Overview", icon: LayoutGrid },
   { label: "Sports", icon: Activity },
-  { label: "Business", icon: Briefcase },
+  { label: "Strategy", icon: Briefcase },
   { label: "Politics", icon: Landmark },
-  { label: "Finance", icon: LineChart },
-  { label: "Simulations", icon: FlaskConical },
+  { label: "Markets", icon: LineChart },
+  { label: "SimLab", icon: FlaskConical },
   { label: "Watchlists", icon: Eye },
 ];
 
 const CARDS = [
   { name: "Sports", color: "#22d3ee", value: "3 scenarios", icon: Activity },
-  { name: "Business", color: "#8055f6", value: "9 strategies", icon: Briefcase },
-  { name: "Political", color: "#a78bfa", value: "4 coalitions", icon: Landmark },
-  { name: "Financial", color: "#10b981", value: "5 regimes", icon: LineChart },
+  { name: "Strategy", color: "#8055f6", value: "9 strategies", icon: Briefcase },
+  { name: "Politics", color: "#a78bfa", value: "4 coalitions", icon: Landmark },
+  { name: "Markets", color: "#10b981", value: "5 regimes", icon: LineChart },
 ];
 
 export function DashboardMock() {

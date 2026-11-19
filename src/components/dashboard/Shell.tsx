@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { brand } from "@/lib/brand";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search, X } from "lucide-react";
@@ -62,7 +63,7 @@ function GlobalSearch() {
 
   return (
     <div ref={box} className="relative w-full max-w-md" role="search">
-      <label htmlFor="global-search" className="sr-only">Search STRATIQ AI</label>
+      <label htmlFor="global-search" className="sr-only">Search {brand.name}</label>
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
       <input
         id="global-search"

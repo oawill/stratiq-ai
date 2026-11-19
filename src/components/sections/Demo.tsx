@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { brand } from "@/lib/brand";
 import { Container, SectionHeading } from "../ui/primitives";
 import { SportsDemo } from "../demo/SportsDemo";
 import { StrategyDemo } from "../demo/StrategyDemo";
@@ -17,7 +18,7 @@ export function Demo() {
       <Container>
         <SectionHeading
           eyebrow="Interactive demo"
-          title="See STRATIQ AI in Action"
+          title={`See ${brand.name} in Action`}
           sub="Real calculations, running in your browser. No paid AI API, no live predictions."
         />
         <div className="glass rounded-3xl p-4 sm:p-8">

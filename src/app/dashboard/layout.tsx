@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { Suspense } from "react";
 import { requireSession } from "@/lib/auth";
 import { Shell } from "@/components/dashboard/Shell";
 
-export const metadata: Metadata = { title: { default: "Dashboard", template: "%s | STRATIQ AI" }, robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: { default: "Dashboard", template: `%s | ${brand.name}` }, robots: { index: false, follow: false } };
 
 async function Authed({ children }: { children: React.ReactNode }) {
   // Authorization is enforced on the server for every dashboard request.

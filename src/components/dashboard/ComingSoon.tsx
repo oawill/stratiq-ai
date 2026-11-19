@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/lib/brand";
 import { Check } from "lucide-react";
 import { Badge, PageTitle, Panel } from "./ui";
 
@@ -13,7 +14,7 @@ export function ComingSoon({ title, step, summary, planned, note }: { title: str
           ))}
         </ul>
         {note && <p className="mt-4 rounded-lg border border-line bg-bg/60 p-3 text-xs text-muted">{note}</p>}
-        <p className="mt-4 text-sm text-muted">Nothing on this page is functional yet. Try <Link href="/dashboard/sports" className="text-violet underline">Sports Intelligence</Link>, which is live.</p>
+        <p className="mt-4 text-sm text-muted">Nothing on this page is functional yet. Try <Link href="/dashboard/sports" className="text-violet underline">{brand.products.sports.name}</Link>, which is live.</p>
       </Panel>
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { brand } from "@/lib/brand";
 import { Database, Lightbulb, LineChart, Shuffle } from "lucide-react";
 import { Container, SectionHeading } from "../ui/primitives";
 
@@ -15,7 +16,7 @@ export function HowItWorks() {
   return (
     <section id="how" className="py-20 lg:py-24">
       <Container>
-        <SectionHeading eyebrow="Methodology" title="How STRATIQ AI Works" />
+        <SectionHeading eyebrow="Methodology" title={`How ${brand.name} Works`} />
         <ol className="relative grid gap-6 md:grid-cols-4">
           <svg className="pointer-events-none absolute left-0 top-9 hidden h-2 w-full md:block" aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 100 2">
             <line x1="12" x2="88" y1="1" y2="1" stroke="#8055f6" strokeOpacity="0.6" strokeWidth="0.4" vectorEffect="non-scaling-stroke" className="flow-line" />

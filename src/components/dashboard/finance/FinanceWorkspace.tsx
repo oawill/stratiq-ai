@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { brand } from "@/lib/brand";
 import { Loader2, Trash2 } from "lucide-react";
 import { call, post } from "@/lib/client";
 import type { FinCompare, FinKind, FinScenarioFull, FinScenarioRow } from "@/lib/types";
@@ -152,7 +153,7 @@ export function FinanceWorkspace() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Financial Intelligence tools" className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-bg/60 p-1"
+        <div role="tablist" aria-label={`${brand.products.markets.name} tools`} className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-bg/60 p-1"
           onKeyDown={(e) => { const i = TABS.findIndex((t) => t[0] === tab); if (e.key === "ArrowRight") setTab(TABS[(i + 1) % TABS.length][0]); if (e.key === "ArrowLeft") setTab(TABS[(i + TABS.length - 1) % TABS.length][0]); }}>
           {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ${tab === id ? "bg-primary text-white" : "text-muted hover:text-ink"}`}>{label}</button>)}
         </div>

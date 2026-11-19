@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { HowItWorks } from "@/components/sections/HowItWorks";
 import { Transparency } from "@/components/sections/Transparency";
 import { Container } from "@/components/ui/primitives";
@@ -6,7 +7,7 @@ import { CtaSignup } from "@/components/sections/CtaSignup";
 
 export const metadata: Metadata = {
   title: "How It Works",
-  description: "The STRATIQ AI methodology: ingest, predict, simulate, understand — with transparent, evaluable models.",
+  description: `The ${brand.name} methodology: ingest, predict, simulate, understand — with transparent, evaluable models.`,
   alternates: { canonical: "/how-it-works" },
 };
 

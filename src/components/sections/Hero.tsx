@@ -1,4 +1,5 @@
 import { CheckCircle2 } from "lucide-react";
+import { brand } from "@/lib/brand";
 import { ButtonLink, Container } from "../ui/primitives";
 import { DashboardMock } from "../DashboardMock";
 import { ParticleField } from "../ParticleField";
@@ -8,6 +9,9 @@ const VALUES = [
   "Multi-scenario and game-theoretic analysis",
   "Explainable, evidence-based strategic insights",
 ];
+
+// "Predict Outcomes." leads in the gradient; the remaining sentences follow in plain text.
+const [LEAD, ...REST] = brand.heroHeadline.split(". ").map((part, i, all) => (i < all.length - 1 ? `${part}.` : part));
 
 export function Hero() {
   return (
@@ -21,15 +25,13 @@ export function Hero() {
       <Container className="relative grid items-center gap-12 lg:grid-cols-[1fr_1.15fr] lg:gap-10">
         <div>
           <p className="mb-5 text-xs font-semibold uppercase tracking-[0.25em] text-cyan">
-            Predict • Simulate • Plan • Win
+            {brand.tagline}
           </p>
-          <h1 className="text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-            <span className="text-gradient">Strategic Intelligence</span> for a Complex World
+          <h1 className="text-[2.3rem] font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.2rem]">
+            <span className="text-gradient">{LEAD}</span> {REST.join(" ")}
           </h1>
           <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-            AI-powered predictions, game-theoretic simulations, and scenario planning across sports,
-            business, politics, and financial markets — built to turn uncertainty into strategic
-            advantage.
+            {brand.description}
           </p>
           <ul className="mt-6 space-y-2.5">
             {VALUES.map((v) => (
@@ -48,7 +50,7 @@ export function Hero() {
             </ButtonLink>
           </div>
           <p className="mt-5 text-xs text-muted">
-            STRATIQ AI does not promise certainty. It helps you decide under uncertainty.
+            {brand.name} does not promise certainty. It helps you decide under uncertainty.
           </p>
         </div>
         <div className="min-w-0">

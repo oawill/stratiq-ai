@@ -14,6 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, StringConstraints
 
 from . import explain as ex
+from .brand import NAME
 from .db import get_conn
 from .facts_loader import load_facts
 from .security import Auth
@@ -85,7 +86,7 @@ def export_workspace(p: Auth, conn=Depends(get_conn)):
         (p.workspace_id, MAX_EXPORT_ITEMS)).fetchall()
     bundle = {
         "format": "stratiq-workspace-export", "version": 1, "generated": _now(), "workspace": {"id": str(ws["id"]), "name": ws["name"]},
-        "notice": "Exported from STRATIQ AI. Contains only this workspace's saved work. Assumptions and model versions are included so results can be reproduced.",
+        "notice": f"Exported from {NAME}. Contains only this workspace's saved work. Assumptions and model versions are included so results can be reproduced.",
         "counts": {"predictions": len(preds), "scenarios": len(scen), "simulation_runs": len(runs)},
         "predictions": preds, "scenarios": scen, "simulation_runs": runs,
     }

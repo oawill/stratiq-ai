@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from .brand import NAME
+
 DISCLAIMER = {
     "sports": "Probabilities from a statistical model on a fictional development dataset. Not a prediction of the match result and not betting advice.",
     "business": "Equilibria follow from the payoffs the user entered. They are not forecasts of real competitor behavior.",
@@ -434,7 +436,7 @@ def report_markdown(f: Facts, generated: str) -> str:
             L += ["", f"## {sec['title']}", ""] + [f"- {x}" for x in sec["items"]]
     if f.reproduction:
         L += ["", "## Reproduction details", ""] + [f"- **{k}:** {v}" for k, v in f.reproduction.items()]
-    L += ["", "---", "Numbers in this report were computed by the STRATIQ AI engines from the stated assumptions. Explanatory text is assembled from those numbers.", ""]
+    L += ["", "---", f"Numbers in this report were computed by the {NAME} engines from the stated assumptions. Explanatory text is assembled from those numbers.", ""]
     return "\n".join(L)
 
 
@@ -447,7 +449,7 @@ def report_html(f: Facts, generated: str) -> str:
             parts.append(f"<h2>{e(sec['title'])}</h2><ul>" + "".join(f"<li>{e(x)}</li>" for x in sec["items"]) + "</ul>")
     if f.reproduction:
         parts.append("<h2>Reproduction details</h2><ul>" + "".join(f"<li><strong>{e(k)}:</strong> {e(v)}</li>" for k, v in f.reproduction.items()) + "</ul>")
-    parts.append("<footer>Numbers in this report were computed by the STRATIQ AI engines from the stated assumptions. Explanatory text is assembled from those numbers.</footer>")
+    parts.append("<footer>Numbers in this report were computed by the {e(NAME)} engines from the stated assumptions. Explanatory text is assembled from those numbers.</footer>")
     css = ("body{font:15px/1.55 system-ui,sans-serif;max-width:780px;margin:2rem auto;padding:0 1rem;color:#111}h1{margin-bottom:.2rem}.sub{color:#555;margin-top:0}"
            ".notice{background:#f3f0ff;border-left:4px solid #8055f6;padding:.6rem .9rem}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:.35rem .5rem;text-align:left}"
            "th{font-weight:600;width:55%}footer{margin-top:2rem;color:#666;font-size:.85rem}@media print{body{margin:0}}")

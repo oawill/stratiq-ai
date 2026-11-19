@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { Suspense } from "react";
 import { Container } from "@/components/ui/primitives";
 import { EarlyAccessForm } from "@/components/EarlyAccessForm";
 
 export const metadata: Metadata = {
   title: "Get Early Access",
-  description: "Join the STRATIQ AI early-access list.",
+  description: `Join the ${brand.name} early-access list.`,
   alternates: { canonical: "/early-access" },
 };
 
@@ -16,7 +17,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ plan?: string
     <Container className="max-w-xl py-16">
       <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Get Early Access</h1>
       <p className="mb-8 mt-3 text-muted">
-        Tell us a little about yourself. We&apos;ll only use your details to contact you about STRATIQ AI.
+        Tell us a little about yourself. We&apos;ll only use your details to contact you about {brand.name}.
       </p>
       <EarlyAccessForm source={source} />
     </Container>

@@ -1,4 +1,5 @@
 import { Container, PreviewBadge, SectionHeading } from "../ui/primitives";
+import { brand } from "@/lib/brand";
 import { Reveal } from "../Motion";
 
 const ITEMS = [
@@ -24,7 +25,7 @@ export function Transparency() {
         <SectionHeading
           eyebrow="Model transparency"
           title="Intelligence You Can Evaluate."
-          sub="A forecast you cannot check is just an opinion. STRATIQ AI is designed around measurable, auditable evaluation."
+          sub={`A forecast you cannot check is just an opinion. ${brand.name} is designed around measurable, auditable evaluation.`}
         />
         <div className="grid items-start gap-8 lg:grid-cols-2">
           <ul className="grid gap-3 sm:grid-cols-2">

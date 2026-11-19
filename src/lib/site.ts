@@ -1,4 +1,5 @@
 import { Activity, Briefcase, Landmark, LineChart, type LucideIcon } from "lucide-react";
+import { brand } from "./brand";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -17,7 +18,7 @@ export interface Domain {
 export const DOMAINS: Domain[] = [
   {
     slug: "sports",
-    name: "Sports Intelligence",
+    name: brand.products.sports.name,
     short: "Sports",
     icon: Activity,
     accent: "#22d3ee",
@@ -31,11 +32,11 @@ export const DOMAINS: Domain[] = [
       "Historical backtesting",
       "Explainable predictions",
     ],
-    cta: "Explore Sports Intelligence",
+    cta: `Explore ${brand.products.sports.name}`,
   },
   {
     slug: "business",
-    name: "Business Intelligence",
+    name: brand.products.strategy.name,
     short: "Business",
     icon: Briefcase,
     accent: "#8055f6",
@@ -49,11 +50,11 @@ export const DOMAINS: Domain[] = [
       "Competitor response scenarios",
       "Strategic decision comparisons",
     ],
-    cta: "Explore Business Intelligence",
+    cta: `Explore ${brand.products.strategy.name}`,
   },
   {
     slug: "politics",
-    name: "Political Intelligence",
+    name: brand.products.politics.name,
     short: "Politics",
     icon: Landmark,
     accent: "#a78bfa",
@@ -67,11 +68,11 @@ export const DOMAINS: Domain[] = [
       "Turnout sensitivity",
       "Strategic interaction modeling",
     ],
-    cta: "Explore Political Intelligence",
+    cta: `Explore ${brand.products.politics.name}`,
   },
   {
     slug: "finance",
-    name: "Financial Intelligence",
+    name: brand.products.markets.name,
     short: "Finance",
     icon: LineChart,
     accent: "#10b981",
@@ -85,7 +86,7 @@ export const DOMAINS: Domain[] = [
       "Macro sensitivity analysis",
       "Scenario comparisons",
     ],
-    cta: "Explore Financial Intelligence",
+    cta: `Explore ${brand.products.markets.name}`,
   },
 ];
 

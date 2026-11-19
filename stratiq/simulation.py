@@ -20,6 +20,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .brand import NAME
+
 ENGINE_VERSION = "0.1.0"
 MIN_ITER, MAX_ITER = 100, 200_000
 MAX_VARS, MAX_OUTPUTS = 12, 5
@@ -460,7 +462,7 @@ def compare(results: list[dict], titles: list[str]) -> dict:
 
 def report_markdown(title: str, domain: str, cfg: dict, result: dict) -> str:
     L = [f"# {title}", "", f"- Domain: {domain}", f"- Iterations: {result['iterations']:,}", f"- Seed: {result['seed']}",
-         f"- Engine: stratiq-monte-carlo {result['engine_version']} (Python {result['python_version']})",
+         f"- Engine: {NAME} Monte Carlo {result['engine_version']} (Python {result['python_version']})",
          f"- Result hash: `{result['result_hash']}`", "",
          "> Scenario assumptions only. Results describe the entered model, not a forecast of real outcomes.", "",
          "## Input variables", ""]

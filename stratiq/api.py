@@ -1,4 +1,4 @@
-"""STRATIQ AI FastAPI service, v1.
+"""VELQORIN.ai FastAPI service, v1.
 
 Authentication: the Next.js server mints a short-lived HS256 JWT (INTERNAL_API_SECRET) after
 validating the user's session cookie. This service verifies it AND re-checks workspace
@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
 from . import model as sports_model
+from .brand import NAME
 from .db import get_conn, load_dotenv_local
 from .security import Auth, Principal, principal, require_write  # noqa: F401
 from .model import HistMatch, input_hash, predict
@@ -26,7 +27,7 @@ from .model import HistMatch, input_hash, predict
 load_dotenv_local()
 
 _PROD = bool(os.environ.get("VERCEL"))  # no public API docs in production; every route needs a token anyway
-app = FastAPI(title="STRATIQ AI API", version="1.0.0", docs_url=None if _PROD else "/api/v1/docs", openapi_url=None if _PROD else "/api/v1/openapi.json")
+app = FastAPI(title=f"{NAME} API", version="1.0.0", docs_url=None if _PROD else "/api/v1/docs", openapi_url=None if _PROD else "/api/v1/openapi.json")
 router = APIRouter(prefix="/api/v1")
 
 

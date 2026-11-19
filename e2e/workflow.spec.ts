@@ -14,7 +14,48 @@ async function signUp(page: Page) {
   await expect(page).toHaveURL(/\/dashboard$/);
 }
 
+// The e2e accounts use the technical test domain @stratiq.test; that address is data, not branding, so it is ignored here.
+const withoutTestEmails = (t: string) => t.replace(/[\w.+-]+@stratiq\.test/g, "");
+
+/** Every page a visitor can see must carry the VELQORIN.ai brand and never the previous name. */
+async function expectBranded(page: Page, path: string) {
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+  await expect(page, `${path} title`).toHaveTitle(/VELQORIN/);
+  const text = withoutTestEmails(await page.evaluate(() => document.body.innerText));
+  expect(text, `${path} shows the previous brand name`).not.toMatch(/stratiq/i);
+  const html = await page.content();
+  const leftover = withoutTestEmails(html).replace(/(src|href|action|name|id|content)="[^"]*"/g, "").match(/.{0,50}stratiq.{0,50}/gi) ?? [];
+  expect(leftover, `${path} markup mentions the previous brand`).toEqual([]);
+}
+
 test.describe.configure({ mode: "serial" });
+
+test("public pages, metadata and assets carry the VELQORIN.ai brand", async ({ page, request }) => {
+  for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/sports", "/business", "/politics", "/finance", "/how-it-works", "/early-access", "/no-such-page"]) {
+    await expectBranded(page, path);
+  }
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "VELQORIN.ai" }).first()).toBeVisible();
+  await expect(page.getByText("Intelligence Beyond Prediction").first()).toBeVisible();
+  await expect(page.getByText("Predict. Simulate. Strategize.").first()).toBeVisible();
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "VELQORIN.ai");
+  await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
+  const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
+  expect(ld.name).toBe("VELQORIN.ai");
+  expect(ld.slogan).toBe("Intelligence Beyond Prediction");
+  const manifest = await (await request.get("/manifest.webmanifest")).json();
+  expect(manifest.name).toBe("VELQORIN.ai");
+  expect(manifest.short_name).toBe("VELQORIN");
+  for (const asset of ["/icon.svg", "/favicon.ico", "/apple-icon.png", "/opengraph-image.png", "/icons/icon-192.png", "/icons/icon-512.png"]) {
+    const res = await request.get(asset);
+    expect(res.status(), asset).toBe(200);
+  }
+  // The product names appear in the marketing navigation.
+  await page.getByRole("button", { name: /Intelligence/ }).click();
+  for (const n of ["VELQORIN Sports", "VELQORIN Strategy", "VELQORIN Politics", "VELQORIN Markets"]) await expect(page.getByRole("link", { name: new RegExp(n) }).first()).toBeVisible();
+});
+
 
 test("anonymous visitors cannot reach the application or its API", async ({ page, request }) => {
   await page.goto("/dashboard/business");
@@ -28,7 +69,7 @@ test("anonymous visitors cannot reach the application or its API", async ({ page
 test("landing page leads to a working account and every module", async ({ page }) => {
   await test.step("landing page", async () => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Strategic Intelligence");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Predict Outcomes.");
     await page.getByRole("link", { name: "Log In" }).first().click();
     await expect(page).toHaveURL(/\/login/);
     await page.getByRole("link", { name: "Create one" }).click();
@@ -38,6 +79,16 @@ test("landing page leads to a working account and every module", async ({ page }
     await signUp(page);
     await expect(page.getByRole("heading", { name: /Welcome, E2E/ })).toBeVisible();
     await expect(page.getByText("Models registered", { exact: true })).toBeVisible();
+  });
+
+  await test.step("dashboard shows the VELQORIN product names and no previous brand", async () => {
+    for (const n of ["VELQORIN Sports", "VELQORIN Strategy", "VELQORIN Politics", "VELQORIN Markets", "VELQORIN SimLab"]) {
+      await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: n })).toBeVisible();
+    }
+    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/settings"]) {
+      await expectBranded(page, path);
+    }
+    await page.goto("/dashboard");
   });
 
   await test.step("sports: forecast, save, find it in history", async () => {
@@ -145,7 +196,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByRole("button", { name: "Open menu" }).click();
-  await page.getByRole("link", { name: "Business Strategy" }).click();
+  await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
   for (const path of ["/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace"]) {
