@@ -25,7 +25,8 @@ from .model import HistMatch, input_hash, predict
 
 load_dotenv_local()
 
-app = FastAPI(title="STRATIQ AI API", version="1.0.0", docs_url="/api/v1/docs", openapi_url="/api/v1/openapi.json")
+_PROD = bool(os.environ.get("VERCEL"))  # no public API docs in production; every route needs a token anyway
+app = FastAPI(title="STRATIQ AI API", version="1.0.0", docs_url=None if _PROD else "/api/v1/docs", openapi_url=None if _PROD else "/api/v1/openapi.json")
 router = APIRouter(prefix="/api/v1")
 
 

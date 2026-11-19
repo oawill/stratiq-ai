@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import uuid
@@ -14,7 +15,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from . import simulation as sim
 from .db import get_conn
 from .security import ADMIN_ROLES, Auth, require_write
-from .simulation_runner import fail_stale, start_in_thread
+from .simulation_runner import execute_run, fail_stale, start_in_thread
 
 router = APIRouter(prefix="/api/v1/simulations", tags=["simulations"])
 
@@ -106,7 +107,12 @@ def create_run(body: RunBody, background: BackgroundTasks, p: Auth, conn=Depends
         "insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'simulation.create',%s)",
         (p.workspace_id, p.user_id, json.dumps({"run_id": str(row["id"]), "iterations": body.iterations, "seed": seed})),
     )
-    background.add_task(launch, str(row["id"]))  # runs after the transaction has committed
+    if os.environ.get("VERCEL") or os.environ.get("SIMULATION_INLINE") == "1":
+        # Serverless hosts freeze a function once it has responded, so a background thread would strand the job.
+        # Run it inside this request instead (runs are capped at 200,000 iterations, a few seconds of work).
+        execute_run(conn, str(row["id"]))
+    else:
+        background.add_task(launch, str(row["id"]))  # runs after the transaction has committed
     return {"id": row["id"], "status": "queued", "seed": seed, "created_at": row["created_at"]}
 
 

@@ -20,7 +20,11 @@ Apply `supabase/migrations/0001_early_access.sql` to any PostgreSQL (Supabase SQ
 `npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test`
 
 ## Deploy (Vercel)
-Import the repo, set the env vars from `.env.example`, deploy. Apply the migration to the production database first.
+The Next.js app and the FastAPI service deploy together: `api/index.py` exposes the FastAPI app as a Python function and `vercel.json` rewrites `/api/v1/*` to it (the public docs are disabled in production, and every route requires the internal token).
+1. Apply the migrations to the production database (`node scripts/migrate.mjs`) and seed it once (`python -m stratiq.seed`).
+2. Set environment variables: `DATABASE_URL`, `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (the production URL), `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`; optionally `ANTHROPIC_API_KEY`.
+3. `vercel deploy --prod`. Then verify with `E2E_BASE_URL=https://your-site npm run test:e2e` (creates and removes `e2e-*@stratiq.test` accounts).
+Because serverless functions freeze after responding, simulation jobs run inside the request when `VERCEL` or `SIMULATION_INLINE=1` is set (progress is then not visible mid-run and cancellation is not possible); on a long-lived host they run in the background as before.
 
 ## Where the math lives
 - `src/lib/poisson.ts` — independent-Poisson match probabilities

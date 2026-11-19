@@ -251,3 +251,13 @@ def test_overview_lists_simulations_scoped_to_workspace(client, conn, sync):
     mine = client.get("/api/v1/overview", headers=hdr(a_uid, a_ws)).json()
     assert [s["title"] for s in mine["saved_simulations"]] == ["Mine"] and int(mine["counts"]["simulations"]) == 1
     assert client.get("/api/v1/overview", headers=hdr(b_uid, b_ws)).json()["saved_simulations"] == []
+
+
+def test_inline_execution_for_serverless_hosts(client, conn, noop, monkeypatch):
+    """On Vercel (or SIMULATION_INLINE=1) the job runs inside the request, because a frozen function cannot host a background thread."""
+    monkeypatch.setenv("SIMULATION_INLINE", "1")
+    uid, wid = make_user(conn)
+    h = hdr(uid, wid)
+    rid = new_run(client, h)  # the launcher is a no-op: only inline execution can complete this run
+    r = client.get(f"/api/v1/simulations/runs/{rid}", headers=h).json()
+    assert r["status"] == "completed" and r["progress"] == 1 and r["result"]["result_hash"]

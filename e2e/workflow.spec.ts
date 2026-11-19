@@ -68,7 +68,7 @@ test("landing page leads to a working account and every module", async ({ page }
     await expect(page.getByText(/Across 1,000 runs/)).toBeVisible();
     await page.getByRole("button", { name: "Explain", exact: true }).first().click();
     await page.getByRole("button", { name: "Explain everything" }).click();
-    await expect(page.getByText("Computed explanation")).toBeVisible();
+    await expect(page.getByText(/^Computed explanation ·/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Limitations" })).toBeVisible();
   });
 
