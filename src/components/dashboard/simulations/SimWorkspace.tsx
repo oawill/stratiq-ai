@@ -5,6 +5,7 @@ import { Download, Loader2, Play, Plus, RefreshCw, Trash2, X } from "lucide-reac
 import { call, post } from "@/lib/client";
 import type { DistType, SimCompare, SimRun, SimRunRow } from "@/lib/types";
 import { Badge, Empty, ErrorPanel, Panel, dt } from "../ui";
+import { CompareExplain, ExplainToggle } from "../assistant/AssistantPanel";
 import { useAdvanced } from "../useAdvanced";
 import { Histogram, OutputCard, Provenance, fmt } from "./Results";
 import { DIST_FIELDS, DOMAINS, TEMPLATES, type DomainId, type SimTemplate } from "./templates";
@@ -266,6 +267,7 @@ function RunView({ id, expectHash, adv, onEdit, onReproduce }: { id: string; exp
           </div>
         )}
         <button type="button" onClick={() => onEdit(run)} className="mt-3 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:border-violet/60">Edit as new simulation</button>
+        {run.status === "completed" && <div className="mt-3"><ExplainToggle type="simulation" id={id} title={run.title} /></div>}
       </Panel>
       {run.result && Object.entries(run.result.outputs).map(([name, o]) => <OutputCard key={name} name={name} o={o} adv={adv} n={run.result!.iterations} seed={run.result!.seed} threshold={thr[name]} />)}
       {run.result && adv && <Provenance r={run.result} />}
@@ -354,6 +356,7 @@ function RunsList({ openId, onOpen }: { openId: string | null; onOpen: (id: stri
                 <Badge tone={STATUS_TONE[r.status]}>{r.status}</Badge>
                 <button type="button" onClick={() => onOpen(r.id)} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:border-violet/60">Open</button>
                 <button type="button" onClick={() => remove(r)} disabled={r.status === "running" || r.status === "queued"} aria-label={`Delete ${r.title}`} className="rounded-lg p-1.5 text-muted hover:text-red-300 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
+              {r.status === "completed" && <ExplainToggle type="simulation" id={r.id} title={r.title} />}
               </li>
             ))}
           </ul>
@@ -364,6 +367,7 @@ function RunsList({ openId, onOpen }: { openId: string | null; onOpen: (id: stri
           </button>
           <span className="text-xs text-muted">Pick 2–4 completed runs.</span>
         </div>
+        {sel.length >= 2 && <CompareExplain key={sel.join(",")} type="simulation" ids={sel} />}
       </Panel>
       {cmp && <CompareView data={cmp} />}
     </div>

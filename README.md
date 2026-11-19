@@ -39,9 +39,9 @@ Import the repo, set the env vars from `.env.example`, deploy. Apply the migrati
 
 ---
 
-## Application (Phase 2 — Steps 1–6)
+## Application (Phase 2 — Steps 1–7)
 
-Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Business Strategy (game-theory solver), Simulation Lab (Monte Carlo), Political Intelligence, Financial Intelligence, Prediction History, Workspace, Settings. All five analytical modules are built.
+Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Business Strategy (game-theory solver), Simulation Lab (Monte Carlo), Political Intelligence, Financial Intelligence, Prediction History, Workspace, Settings. All five analytical modules are built, plus the assistant, a workspace library, reports and exports.
 
 ### Architecture
 - **Next.js** handles pages and sessions (scrypt passwords; session cookie token stored only as a SHA-256 hash in Postgres).
@@ -62,12 +62,19 @@ node scripts/migrate.mjs                      # apply SQL migrations
 npm run dev                                   # in another terminal
 ```
 Simulation jobs run in a background thread of the API process. On hosts where the API is serverless, run a long-lived worker instead: `.venv/Scripts/python -m stratiq.worker`.
-Extra env vars: `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (default `http://127.0.0.1:8000`).
+Extra env vars: `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (default `http://127.0.0.1:8000`). Optional: `ANTHROPIC_API_KEY` (and `ASSISTANT_MODEL`) to enable the language-model mode of the assistant.
+
+### Assistant, library and exports (Step 7)
+- **Assistant** (`stratiq/explain.py`, `assistant.py`, `assistant_api.py`): explains a saved forecast, scenario or completed simulation run, or the differences between 2–4 of them. Explanations are always available in **computed** mode: sentences assembled from the engines' own numbers (what it shows, uncertainty, assumptions, limitations, what to explore next). If `ANTHROPIC_API_KEY` is set, a language model may rewrite the explanation and answer free-form questions, but its text is shown **only if every number in it matches the computed results** (rounding allowed); otherwise it is discarded, the computed explanation is shown, and the user is told why. The model gets only the structured results (no names, emails or ids), has no tools, and its output is displayed as plain text. The model path is tested with fake clients; it has not been exercised against the live API.
+- **Library** (`/dashboard/workspace`): everything saved in the workspace, searchable, with per-item Explain and printable reports (HTML/Markdown/JSON), and a whole-workspace JSON export. Users can create and switch between workspaces; data is isolated per workspace.
+- Simulation runs also keep their own Markdown/CSV/JSON reports.
 
 ### Tests
-`npm test` (TypeScript math) · `.venv/Scripts/python -m pytest` (engine unit tests + API integration tests; each API test runs in a transaction that is always rolled back).
+`npm test` (TypeScript math) · `npm run test:py` (Python engine unit tests + API integration tests; each API test runs in a transaction that is always rolled back) · `npm run test:e2e` (Playwright end-to-end workflow: landing page → sign-up → every module → library/export → workspace switching → sign-out, plus a 375 px mobile layout check; run `npm run build` first and `npx playwright install chromium` once). The e2e suite creates `e2e-*@stratiq.test` accounts in the configured database and removes them afterwards in `e2e/teardown.mjs`; point `DATABASE_URL` at a disposable database if you do not want it touching shared data.
 
 ### Limitations
+- The assistant's computed explanations are templates over the engines' numbers, not open-ended reasoning; free-form questions need a configured language model. Reports are HTML/Markdown/JSON (use the browser's Print for PDF).
+- The e2e suite runs on Chromium only.
 - Finance models use constant volatility and correlation (no volatility clustering, regimes, costs, taxes or liquidity); Monte Carlo is synchronous with a work cap (use fewer simulations/assets for long horizons); the "normal approximation" VaR is a rough comparator over long horizons; there is no licensed market-data integration yet.
 - Political tools model a single national list (no districts or compensatory seats); coalition power ignores policy fit unless positions are entered; the election-uncertainty "concentration" is a scenario knob, not a measured polling error; 2/3 is entered as 0.6667.
 - Simulation inputs are drawn independently (no correlation); sensitivity is rank correlation, not causal. Exact reproduction holds on the same Python version (the engine records it). In-process job threads need a long-lived API process; serverless needs the standalone worker.

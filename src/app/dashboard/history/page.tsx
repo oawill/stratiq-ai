@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import type { PredictionRow } from "@/lib/types";
+import { ExplainToggle } from "@/components/dashboard/assistant/AssistantPanel";
 import { Badge, Empty, ErrorPanel, PageTitle, dt, pct } from "@/components/dashboard/ui";
 
 export const metadata: Metadata = { title: "Prediction History" };
@@ -44,6 +45,7 @@ export default async function Page() {
                     <div className="flex justify-between gap-3"><dt className="text-muted">Record id</dt><dd className="truncate font-mono">{p.id}</dd></div>
                   </dl>
                 </div>
+                <div className="mt-4"><ExplainToggle type="prediction" id={p.id} title={`${p.inputs.home_name} vs ${p.inputs.away_name}`} /></div>
               </details>
             </li>
           ))}

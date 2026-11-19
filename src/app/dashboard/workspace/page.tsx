@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { Badge, ErrorPanel, PageTitle, Panel } from "@/components/dashboard/ui";
+import { LibraryClient } from "@/components/dashboard/workspace/LibraryClient";
 
 export const metadata: Metadata = { title: "My Workspace" };
 
@@ -19,7 +20,7 @@ export default async function Page() {
   }
   return (
     <>
-      <PageTitle title="My Workspace" sub="Everything you save is private to this workspace." />
+      <PageTitle title="My Workspace" sub="Everything you save is private to this workspace. Switch workspaces, browse and search your saved work, and export it." />
       <Panel title={s.workspaceName} badge={<Badge tone="violet">{s.role}</Badge>}>
         <ul className="divide-y divide-line">
           {members.map((m) => (
@@ -29,8 +30,9 @@ export default async function Page() {
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-xs text-muted">Inviting teammates and shared workspaces are not available yet.</p>
+        <p className="mt-4 text-xs text-muted">Inviting teammates is not available yet.</p>
       </Panel>
+      <LibraryClient />
     </>
   );
 }

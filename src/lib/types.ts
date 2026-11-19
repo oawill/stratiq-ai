@@ -234,3 +234,18 @@ export interface FinScenarioRow { id: string; title: string; created_at: string;
 export interface FinScenarioFull { id: string; title: string; kind: FinKind; notes: string | null; inputs: Record<string, unknown> }
 export interface FinCompare { kind: FinKind; scenarios: { id: string; title: string; summary: Record<string, any> }[] } // eslint-disable-line @typescript-eslint/no-explicit-any
 export interface FinDataSources { configured: boolean; requested_provider: string | null; message: string }
+
+// ---- Assistant, library, workspaces ----
+export type AssistantItemType = "prediction" | "simulation" | "scenario";
+export interface AssistantStatus { llm_configured: boolean; model: string | null; deterministic: boolean; note: string }
+export interface AssistantResult {
+  mode: "deterministic" | "language_model"; focus: string; title: string; subject: string; notice: string;
+  narrative: string | null;
+  sections: { id: string; title: string; items: string[] }[];
+  metrics: { label: string; value: string; raw: number | string | null }[];
+  reproduction: Record<string, string>;
+  grounding: { checked: boolean; rejected: boolean; offending_numbers: string[]; reason: string | null };
+  lines?: string[];
+}
+export interface LibraryItem { type: AssistantItemType; module: string; kind: string; id: string; title: string; created_at: string; created_by_name: string; status: string }
+export interface WorkspaceRow { id: string; name: string; role: string; created_at: string; active: boolean | null }

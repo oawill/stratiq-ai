@@ -322,9 +322,14 @@ from .business_api import router as business_router  # noqa: E402
 from .simulation_api import router as simulation_router  # noqa: E402
 from .politics_api import router as politics_router  # noqa: E402
 from .finance_api import router as finance_router  # noqa: E402
+from .assistant_api import router as assistant_router  # noqa: E402
+from .library_api import router as library_router, ws_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
 app.include_router(simulation_router)
 app.include_router(politics_router)
 app.include_router(finance_router)
+app.include_router(assistant_router)
+app.include_router(library_router)
+app.include_router(ws_router)

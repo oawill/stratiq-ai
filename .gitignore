@@ -48,3 +48,7 @@ next-env.d.ts
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# playwright
+test-results/
+playwright-report/

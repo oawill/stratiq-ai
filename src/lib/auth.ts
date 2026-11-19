@@ -62,7 +62,7 @@ export async function getSession(): Promise<Session | null> {
        join workspace_members m on m.user_id = u.id
        join workspaces w on w.id = m.workspace_id
       where s.id = $1 and s.expires_at > now()
-      order by m.created_at asc limit 1`,
+      order by (m.workspace_id = u.active_workspace_id) desc nulls last, m.created_at asc limit 1`,
     [sha256(token)],
   );
   const r = rows[0];

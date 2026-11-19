@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import type { CompareRow, GameAnalysis, ScenarioFull, ScenarioListRow, SensitivityResult } from "@/lib/types";
 import { Badge, Empty, ErrorPanel, Panel, dt } from "../ui";
+import { CompareExplain, ExplainToggle } from "../assistant/AssistantPanel";
 import { useAdvanced } from "../useAdvanced";
 import { AnalysisView, NashBadge, type GameDef } from "./AnalysisView";
 import { TEMPLATES, type Template } from "./templates";
@@ -274,6 +275,7 @@ function SavedPanel({ onLoad }: { onLoad: (s: ScenarioFull) => void }) {
                 <NashBadge n={s.nash_n} />
                 <button type="button" onClick={() => load(s.id)} disabled={busy === s.id} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:border-violet/60 disabled:opacity-60">Open</button>
                 <button type="button" onClick={() => remove(s)} disabled={busy === s.id} aria-label={`Delete ${s.title}`} className="rounded-lg p-1.5 text-muted hover:text-red-300 disabled:opacity-60"><Trash2 className="h-4 w-4" /></button>
+              <ExplainToggle type="scenario" id={s.id} title={s.title} />
               </li>
             ))}
           </ul>
@@ -283,6 +285,7 @@ function SavedPanel({ onLoad }: { onLoad: (s: ScenarioFull) => void }) {
             {busy === "cmp" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />} Compare selected ({sel.length})
           </button>
         </div>
+        {sel.length >= 2 && <CompareExplain key={sel.join(",")} type="scenario" ids={sel} />}
       </Panel>
       {cmp && <Panel title="Scenario comparison"><CompareTable rows={cmp} /></Panel>}
     </div>
@@ -377,7 +380,7 @@ export function BusinessWorkspace() {
                   : "error" in current ? <ErrorPanel message={current.error} />
                   : <AnalysisView g={parsed.game} a={current.analysis} adv={adv} />}
               </Panel>
-              {adv && game && <div className="lg:col-start-2"><Sensitivity g={game} gameKey={key} /></div>}
+              {adv && game && <div className="min-w-0 lg:col-start-2"><Sensitivity g={game} gameKey={key} /></div>}
               <Panel className="lg:col-start-1" title="3 · Save">
                 <div className="space-y-3">
                   <div><label htmlFor="sc-title" className="mb-1 block text-xs text-muted">Scenario title</label><input id="sc-title" value={draft.title} maxLength={120} onChange={(e) => edit({ ...draft, title: e.target.value })} className={`${field} w-full`} /></div>

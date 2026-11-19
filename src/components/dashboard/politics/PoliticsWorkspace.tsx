@@ -5,6 +5,7 @@ import { Loader2, Trash2 } from "lucide-react";
 import { call, post } from "@/lib/client";
 import type { PolCompare, PolKind, PolScenarioFull, PolScenarioRow } from "@/lib/types";
 import { Badge, Empty, ErrorPanel, Panel, dt } from "../ui";
+import { CompareExplain, ExplainToggle } from "../assistant/AssistantPanel";
 import { useAdvanced } from "../useAdvanced";
 import { CoalitionTool, defaultCoalition, type CoalitionDraft } from "./CoalitionTool";
 import { PolicyTool, defaultPolicy, type PolicyDraft } from "./PolicyTool";
@@ -145,9 +146,11 @@ function SavedPanel({ onOpen }: { onOpen: (s: PolScenarioFull) => void }) {
                 <Badge tone="violet">{KIND_LABEL[s.kind]}</Badge>
                 <button type="button" onClick={() => open(s.id)} disabled={busy === s.id} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:border-violet/60 disabled:opacity-60">Open</button>
                 <button type="button" onClick={() => remove(s)} disabled={busy === s.id} aria-label={`Delete ${s.title}`} className="rounded-lg p-1.5 text-muted hover:text-red-300 disabled:opacity-60"><Trash2 className="h-4 w-4" /></button>
+              <ExplainToggle type="scenario" id={s.id} title={s.title} />
               </li>))}
           </ul>)}
         <div className="mt-3"><button type="button" onClick={compare} disabled={sel.length < 2 || busy === "cmp"} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy === "cmp" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />} Compare selected ({sel.length})</button></div>
+        {sel.length >= 2 && <CompareExplain key={sel.join(",")} type="scenario" ids={sel} />}
       </Panel>
       {cmp && <Panel title={`${KIND_LABEL[cmp.kind]} scenario comparison`}><CompareTable data={cmp} /><p className="mt-2 text-[11px] text-muted">{"Scenario arithmetic on entered assumptions. Not a poll, not a validated election forecast."}</p></Panel>}
     </div>

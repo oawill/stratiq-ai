@@ -15,7 +15,7 @@ export function PageTitle({ title, sub, right }: { title: string; sub?: string; 
 
 export function Panel({ title, children, className = "", badge }: { title?: string; children: ReactNode; className?: string; badge?: ReactNode }) {
   return (
-    <section className={`glass rounded-2xl p-4 sm:p-5 ${className}`}>
+    <section className={`glass min-w-0 rounded-2xl p-4 sm:p-5 ${className}`}>
       {title && (
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">{title}</h2>

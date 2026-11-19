@@ -158,7 +158,8 @@ function Profile({ user }: { user: Props["user"] }) {
             <div className="truncate text-xs text-muted">{user.email}</div>
             <div className="mt-1 text-[11px] text-muted">{user.workspace} · {user.role}</div>
           </div>
-          <Link href="/dashboard/settings" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-3 py-2 text-sm hover:bg-white/5">Settings</Link>
+          <Link href="/dashboard/workspace" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-3 py-2 text-sm hover:bg-white/5">Workspaces &amp; library</Link>
+          <Link href="/dashboard/settings" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm hover:bg-white/5">Settings</Link>
           <form action={logout}>
             <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-white/5"><LogOut className="h-4 w-4" aria-hidden="true" /> Sign out</button>
           </form>
