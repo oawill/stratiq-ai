@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/dashboard/ComingSoon";
+import { PageTitle } from "@/components/dashboard/ui";
+import { FinanceWorkspace } from "@/components/dashboard/finance/FinanceWorkspace";
 
 export const metadata: Metadata = { title: "Financial Intelligence" };
 
 export default function Page() {
   return (
-    <ComingSoon
-      title="Financial Intelligence"
-      step="Step 6"
-      summary="Portfolio scenarios and risk simulation."
-      planned={["Portfolio scenario builder","Historical return analysis (permitted data provider required)","Market stress testing","Monte Carlo risk simulations","Value at Risk and Expected Shortfall"]}
-      note="Educational scenario modeling, not investment advice. There will be no automated trading."
-    />
+    <>
+      <PageTitle
+        title="Financial Intelligence"
+        sub="Educational portfolio risk tools: Monte Carlo simulation, Value at Risk and Expected Shortfall, stress tests and historical analysis of data you supply. Not investment advice, not a forecast, and nothing here can place a trade."
+      />
+      <FinanceWorkspace />
+    </>
   );
 }

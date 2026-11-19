@@ -193,3 +193,44 @@ export type PolKind = "coalition" | "turnout" | "policy";
 export interface PolScenarioRow { id: string; title: string; created_at: string; created_by_name: string; kind: PolKind }
 export interface PolScenarioFull { id: string; title: string; kind: PolKind; notes: string | null; inputs: Record<string, unknown> }
 export interface PolCompare { kind: PolKind; scenarios: { id: string; title: string; summary: Record<string, any> }[] } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+// ---- Financial Intelligence ----
+export interface FinAnalytics {
+  expected_return: number; volatility: number; diversification_ratio: number; notice: string; notes: string[];
+  assets: { name: string; weight: number; risk_contribution: number; stand_alone_vol: number }[];
+}
+export interface FinMonteCarlo {
+  engine_version: string; python_version: string; seed: number; iterations: number; steps: number; horizon_years: number; result_hash: string; runtime_ms: number;
+  initial_value: number; notice: string; notes: string[];
+  model: { rebalance: string; tails: string; df: number | null };
+  analytics: FinAnalytics;
+  terminal: { mean_value: number; se_mean_value: number; analytic_mean_value: number | null; median_value: number; p5_value: number; p95_value: number;
+    return: { mean: number; sd: number; min: number; max: number; p05: number; p25: number; p50: number; p75: number; p95: number };
+    histogram: { edges: number[]; counts: number[] } };
+  p_loss: number;
+  p_loss_exceeds: { threshold: number; p: number } | null;
+  max_drawdown: { mean: number; p95: number; p_exceeds: { threshold: number; p: number } | null };
+  risk: { confidence: number; mc_var: number; mc_es: number; tail_observations: number; approx_normal_var: number; approx_normal_es: number }[];
+  fan: { t: number; p05: number; p25: number; p50: number; p75: number; p95: number }[];
+}
+export interface FinStress {
+  worst: string; reverse_target: number | null; notice: string; notes: string[];
+  scenarios: { name: string; portfolio_return: number; pnl: number; value_after: number; scale_to_target?: number | null;
+    contributions: { asset: string; shock: number; contribution: number; pnl: number }[] }[];
+}
+export interface FinSeriesStats {
+  periods: number; mean_period: number; vol_period: number; annualised_mean: number; annualised_vol: number; total_return: number; cagr: number;
+  max_drawdown: number; skewness: number; excess_kurtosis: number; best_period: number; worst_period: number;
+}
+export interface FinHistorical {
+  periods_per_year: number; names: string[]; weights: number[]; assets: Record<string, FinSeriesStats>; correlation: number[][]; portfolio: FinSeriesStats;
+  provenance: string; notice: string; notes: string[];
+  risk: { confidence: number; tail_observations: number; warning: string | null; historical: { var: number; es: number }; parametric_normal: { var: number; es: number };
+    kupiec_parametric: { exceedances: number; observations: number; expected: number; lr: number; p_value: number } }[];
+  growth: { t: number; value: number; drawdown: number }[];
+}
+export type FinKind = "montecarlo" | "stress" | "historical";
+export interface FinScenarioRow { id: string; title: string; created_at: string; created_by_name: string; kind: FinKind }
+export interface FinScenarioFull { id: string; title: string; kind: FinKind; notes: string | null; inputs: Record<string, unknown> }
+export interface FinCompare { kind: FinKind; scenarios: { id: string; title: string; summary: Record<string, any> }[] } // eslint-disable-line @typescript-eslint/no-explicit-any
+export interface FinDataSources { configured: boolean; requested_provider: string | null; message: string }

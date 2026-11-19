@@ -39,9 +39,9 @@ Import the repo, set the env vars from `.env.example`, deploy. Apply the migrati
 
 ---
 
-## Application (Phase 2 — Steps 1–5)
+## Application (Phase 2 — Steps 1–6)
 
-Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Business Strategy (game-theory solver), Simulation Lab (Monte Carlo), Political Intelligence, Prediction History, Workspace, Settings. The Finance page exists only as clearly labeled "not built yet" placeholders.
+Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Business Strategy (game-theory solver), Simulation Lab (Monte Carlo), Political Intelligence, Financial Intelligence, Prediction History, Workspace, Settings. All five analytical modules are built.
 
 ### Architecture
 - **Next.js** handles pages and sessions (scrypt passwords; session cookie token stored only as a SHA-256 hash in Postgres).
@@ -50,6 +50,7 @@ Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: au
 - **Business Strategy** (`stratiq/gametheory.py`, `stratiq/business_api.py`): exact rational-arithmetic solver for two-player games up to 8×8 — best responses, pure Nash, strict/weak dominance, iterated elimination, Pareto/welfare, completely mixed equilibrium (2×2 only) and exact piecewise payoff sensitivity. Scenarios are saved per workspace and can be compared (2–4). No LLM is involved.
 - **Simulation Lab** (`stratiq/simulation.py`, `simulation_runner.py`, `simulation_api.py`, `worker.py`): seeded Monte Carlo over 10 distributions (normal, lognormal, uniform, triangular, beta, Bernoulli, binomial, Poisson, constant, discrete) with user formulas. Formulas are parsed with `ast`, checked against a strict whitelist and compiled — never passed to an unrestricted `eval`. Results: mean ± CI, percentiles, histogram, P(output > threshold), Spearman-rank sensitivity, convergence, and a reproducibility hash. Jobs run asynchronously (queued → running → completed/failed/cancelled) with progress, cancellation and stale-worker detection; export as Markdown, CSV or JSON; compare 2–4 runs.
 - **Political Intelligence** (`stratiq/politics.py`, `politics_api.py`): nonpartisan, aggregate, scenario-only tools. Exact Shapley–Shubik and Banzhaf voting power, minimal/connected winning coalitions, D'Hondt / Sainte-Laguë / Hare seat allocation with thresholds, turnout sweeps with bisected tipping points, seeded election-uncertainty simulation, and multi-criteria policy analysis (Pareto set, exact weight-stability breakpoints, rank acceptability). It stores no polling data, makes no forecasts, and takes no individual-level input. Scenarios are saved per workspace and compared within a type.
+- **Financial Intelligence** (`stratiq/finance.py`, `finance_api.py`): educational, long-only, no leverage or shorting, and no trading of any kind. Portfolio analytics with Euler risk contributions; empirical and normal Value at Risk / Expected Shortfall (with a Kupiec backtest); instantaneous stress tests with reverse stress; a seeded multi-asset Monte Carlo (Cholesky-correlated lognormal returns, optional Student-t shocks, rebalanced or buy-and-hold, fan chart, drawdown statistics); and historical analysis of **user-supplied** return series. No market-data provider is configured (`GET /api/v1/finance/data-sources` says so); supplied data is labeled unverified. Scenarios are saved per workspace and compared within a type.
 - Predictions are immutable (DB trigger). Each stores model version, feature cutoff, inputs, outputs, assumptions and an input hash.
 
 ### Local setup
@@ -67,6 +68,7 @@ Extra env vars: `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (default `http:/
 `npm test` (TypeScript math) · `.venv/Scripts/python -m pytest` (engine unit tests + API integration tests; each API test runs in a transaction that is always rolled back).
 
 ### Limitations
+- Finance models use constant volatility and correlation (no volatility clustering, regimes, costs, taxes or liquidity); Monte Carlo is synchronous with a work cap (use fewer simulations/assets for long horizons); the "normal approximation" VaR is a rough comparator over long horizons; there is no licensed market-data integration yet.
 - Political tools model a single national list (no districts or compensatory seats); coalition power ignores policy fit unless positions are entered; the election-uncertainty "concentration" is a scenario knob, not a measured polling error; 2/3 is entered as 0.6667.
 - Simulation inputs are drawn independently (no correlation); sensitivity is rank correlation, not causal. Exact reproduction holds on the same Python version (the engine records it). In-process job threads need a long-lived API process; serverless needs the standalone worker.
 - Business payoffs are user-entered assumptions; templates are illustrative, not market data. Mixed equilibria exist only for 2×2 games; there is no support-enumeration solver for larger games, and no weak-dominance elimination.

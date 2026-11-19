@@ -76,7 +76,7 @@ export default async function Page() {
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-muted">The Financial model is not built yet and is not listed.</p>
+          <p className="mt-3 text-xs text-muted">All five analytical domains now have a registered model.</p>
         </Panel>
 
         <Panel title="Saved simulations" className="lg:col-span-1">

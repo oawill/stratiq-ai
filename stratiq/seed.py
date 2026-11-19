@@ -84,6 +84,21 @@ def ensure_politics_version(conn) -> str:
     return str(row["id"])
 
 
+def ensure_finance_version(conn) -> str:
+    row = conn.execute(
+        """insert into model_versions (domain, name, version, description, status, assumptions, limitations)
+           values ('finance', 'financial-risk-tools', '0.1.0', %s, 'active', %s, %s)
+           on conflict (name, version) do update set description = excluded.description
+           returning id""",
+        (
+            "Educational portfolio risk tools: risk contributions, empirical and normal VaR / Expected Shortfall with Kupiec backtesting, stress tests with reverse stress, and a seeded multi-asset Monte Carlo (normal or Student-t shocks).",
+            json.dumps(["Portfolios are long-only and fully invested.", "Expected returns, volatilities and correlations are user assumptions.", "Monte Carlo uses lognormal returns with constant volatility and correlation.", "Historical analysis uses only return series supplied by the user."]),
+            json.dumps(["Not investment advice and not a forecast.", "No market-data provider is configured; supplied data is unverified.", "Constant-parameter models omit volatility clustering, regime changes and correlation breakdowns.", "No transaction costs, taxes, liquidity effects, leverage or shorting."]),
+        ),
+    ).fetchone()
+    return str(row["id"])
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true")
@@ -96,6 +111,7 @@ def main() -> None:
         ensure_solver_version(conn)
         ensure_monte_carlo_version(conn)
         ensure_politics_version(conn)
+        ensure_finance_version(conn)
         if args.reset:
             conn.execute("delete from sports_matches")
             conn.execute("delete from sports_teams")
