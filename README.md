@@ -36,3 +36,35 @@ Import the repo, set the env vars from `.env.example`, deploy. Apply the migrati
 - Performance dashboard is a clearly labeled sample; no accuracy claims are made.
 - Lighthouse scores have not been measured yet. No OG image asset is included.
 - Signup flow verified against validation/no-DB paths only; not tested against a live database.
+
+---
+
+## Application (Phase 2 — Steps 1 & 2)
+
+Authenticated workspace at `/dashboard` (sign up at `/signup`). Built so far: auth, dashboard shell, overview, Sports Intelligence (Poisson engine), Prediction History, Workspace, Settings. Business, Politics, Finance and Simulation Lab pages exist only as clearly labeled "not built yet" placeholders.
+
+### Architecture
+- **Next.js** handles pages and sessions (scrypt passwords; session cookie token stored only as a SHA-256 hash in Postgres).
+- **FastAPI** (`stratiq/api.py`, versioned at `/api/v1`) owns all analytics. Browsers never call it directly: Next mints a 60-second HS256 token (`INTERNAL_API_SECRET`) per request, and the API re-verifies workspace membership in the database on every call.
+- **Engine** (`stratiq/`): `poisson.py` (scoreline math), `ratings.py` (Maher-style attack/defence fit), `model.py` (prediction + assumptions), `backtest.py` (rolling-origin evaluation), `dataset.py` (seeded FICTIONAL leagues).
+- Predictions are immutable (DB trigger). Each stores model version, feature cutoff, inputs, outputs, assumptions and an input hash.
+
+### Local setup
+```bash
+python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt   # Windows; use .venv/bin on macOS/Linux
+node scripts/migrate.mjs                      # apply SQL migrations
+.venv/Scripts/python -m stratiq.seed          # fictional dataset + real backtest
+.venv/Scripts/python -m uvicorn stratiq.api:app --port 8000
+npm run dev                                   # in another terminal
+```
+Extra env vars: `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (default `http://127.0.0.1:8000`).
+
+### Tests
+`npm test` (TypeScript math) · `.venv/Scripts/python -m pytest` (engine unit tests + API integration tests; each API test runs in a transaction that is always rolled back).
+
+### Limitations
+- All sports data is **fictional**; backtest metrics are on simulated data and say nothing about real-world accuracy.
+- The Python API is not yet configured for Vercel deployment; the deployed marketing site does not include the dashboard until that is done.
+- Dev and the deployed site share one Neon database.
+- No Playwright end-to-end suite yet (workflow was verified manually in a browser).
+- Workspaces are single-member; no invites, password reset, or profile editing.

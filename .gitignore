@@ -42,3 +42,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc

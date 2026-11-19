@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/Nav";
-import { MotionProvider } from "@/components/Motion";
-import { Footer } from "@/components/Footer";
 import { SITE_URL } from "@/lib/site";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -46,11 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
-        <Nav />
-        <main id="main" className="flex-1">
-          <MotionProvider>{children}</MotionProvider>
-        </main>
-        <Footer />
+        {children}
       </body>
     </html>
   );
