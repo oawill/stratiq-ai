@@ -12,6 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, StringConstraints
 
+from . import plans
 from . import simulation as sim
 from .db import get_conn
 from .security import ADMIN_ROLES, Auth, require_write
@@ -86,6 +87,8 @@ def validate(body: ValidateBody, p: Auth):
 @router.post("/runs", status_code=201)
 def create_run(body: RunBody, background: BackgroundTasks, p: Auth, conn=Depends(get_conn)):
     require_write(p)
+    plans.check_quota(conn, p.workspace_id, "runs")
+    plans.check_iterations(conn, p.workspace_id, body.iterations)
     seed = body.seed if body.seed is not None else secrets.randbelow(2**31)
     cfg = _cfg(body, body.iterations, seed)
     _pilot(cfg)  # fail fast on a broken model instead of after a long wait

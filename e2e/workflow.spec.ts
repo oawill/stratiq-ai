@@ -69,6 +69,10 @@ test("anonymous visitors cannot reach the application or its API", async ({ page
   expect((await request.get("/app-api/library/export")).status()).toBe(401);
   const post = await request.post("/app-api/business/solve", { data: {}, headers: { origin: "https://evil.example" } });
   expect([401, 403]).toContain(post.status());
+  // Billing endpoints: anonymous checkout is refused, and the webhook never accepts unsigned requests.
+  expect((await request.post("/api/billing/checkout", { data: { plan: "strategy_pro", interval: "month" } })).status()).toBe(401);
+  expect((await request.post("/api/billing/portal", { data: {} })).status()).toBe(401);
+  expect([400, 503]).toContain((await request.post("/api/stripe/webhook", { data: "{}" })).status());
 });
 
 test("landing page leads to a working account and every module", async ({ page }) => {
@@ -94,7 +98,7 @@ test("landing page leads to a working account and every module", async ({ page }
     for (const n of ["VELQORIN Sports", "VELQORIN Strategy", "VELQORIN Politics", "VELQORIN Markets", "VELQORIN SimLab"]) {
       await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: n })).toBeVisible();
     }
-    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/settings"]) {
+    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/billing", "/dashboard/settings"]) {
       await expectBranded(page, path);
     }
     await page.goto("/dashboard");
@@ -155,6 +159,14 @@ test("landing page leads to a working account and every module", async ({ page }
     expect(bundle.counts.predictions).toBe(1);
     expect(bundle.counts.scenarios).toBe(1);
     expect(bundle.counts.simulation_runs).toBe(1);
+  });
+
+  await test.step("plan and billing page shows the plan and its limits", async () => {
+    await page.goto("/dashboard/billing");
+    await expect(page.getByRole("heading", { name: "Plan & Billing" })).toBeVisible();
+    await expect(page.getByText("Current plan", { exact: true })).toBeVisible();
+    await expect(page.getByText("Saved scenarios", { exact: true })).toBeVisible();
+    await expect(page.getByText("Payments are handled by Stripe")).toBeVisible();
   });
 
   await test.step("a second workspace is isolated, and switching back restores the first", async () => {

@@ -14,6 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, StringConstraints
 
 from . import explain as ex
+from . import plans
 from .brand import NAME
 from .db import get_conn
 from .facts_loader import load_facts
@@ -55,6 +56,7 @@ def items(p: Auth, conn=Depends(get_conn), q: Annotated[str | None, Query(max_le
 # ------------------------------------------------------------------ reports
 @router.get("/report")
 def report(p: Auth, type: Literal["prediction", "simulation", "scenario"], id: uuid.UUID, format: Literal["md", "html", "json"] = "html", conn=Depends(get_conn)):
+    plans.check_exports(conn, p.workspace_id)
     facts, meta = load_facts(conn, p, type, id)
     gen = _now()
     slug = re.sub(r"[^a-z0-9]+", "-", meta["title"].lower()).strip("-")[:50] or "report"
@@ -72,6 +74,7 @@ def report(p: Auth, type: Literal["prediction", "simulation", "scenario"], id: u
 # ------------------------------------------------------------------ whole-workspace export
 @router.get("/export")
 def export_workspace(p: Auth, conn=Depends(get_conn)):
+    plans.check_exports(conn, p.workspace_id)
     ws = conn.execute("select id, name, created_at from workspaces where id=%s", (p.workspace_id,)).fetchone()
     preds = conn.execute(
         """select p.id, p.created_at, p.feature_cutoff, p.inputs, p.outputs, p.assumptions, p.input_hash, mv.name model, mv.version model_version

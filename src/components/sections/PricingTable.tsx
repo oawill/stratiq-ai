@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { ButtonLink, Container, SectionHeading } from "../ui/primitives";
 import { ANNUAL_DISCOUNT, annualMonthly, annualTotal } from "@/lib/pricing";
+import { PAID_PLANS } from "@/lib/plans";
 
 const TIERS = [
   { name: "Explorer", monthly: 0, blurb: "Learn the fundamentals.", features: ["Basic demonstrations", "Limited scenarios", "Public educational content"] },
-  { name: "Sports Pro", monthly: 12, blurb: "For serious match analysis.", features: ["Advanced match forecasts", "Team comparisons", "Prediction history", "Model performance insights"], featured: false },
-  { name: "Strategy Pro", monthly: 59, blurb: "For analysts and strategists.", features: ["Advanced game theory tools", "Monte Carlo simulations", "Saved scenarios", "Scenario comparisons", "Report exports"], featured: true },
+  { name: PAID_PLANS.sports_pro.name, monthly: PAID_PLANS.sports_pro.monthly, blurb: "For serious match analysis.", features: ["Advanced match forecasts", "Team comparisons", "Prediction history", "Model performance insights"], featured: false },
+  { name: PAID_PLANS.strategy_pro.name, monthly: PAID_PLANS.strategy_pro.monthly, blurb: "For analysts and strategists.", features: ["Advanced game theory tools", "Monte Carlo simulations", "Saved scenarios", "Scenario comparisons", "Report exports"], featured: true },
   { name: "Enterprise", monthly: null, blurb: "For teams and organizations.", features: ["Team workspaces", "Advanced permissions", "API access", "Organization reporting", "Custom integrations"] },
 ];
 

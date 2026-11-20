@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from . import gametheory as gt
+from . import plans
 from .db import get_conn
 from .security import ADMIN_ROLES, Auth, require_write
 
@@ -73,6 +74,7 @@ def sens(body: SensitivityBody, p: Auth):
 @router.post("/scenarios", status_code=201)
 def save_scenario(body: ScenarioBody, p: Auth, conn=Depends(get_conn)):
     require_write(p)
+    plans.check_quota(conn, p.workspace_id, "scenarios")
     analysis = gt.analyse(_game(body))
     definition = {
         "players": body.players,
