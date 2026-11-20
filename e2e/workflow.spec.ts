@@ -35,7 +35,7 @@ async function expectBranded(page: Page, path: string) {
 test.describe.configure({ mode: "serial" });
 
 test("public pages, metadata and assets carry the VELQORIN brand", async ({ page, request }) => {
-  for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/sports", "/business", "/politics", "/finance", "/how-it-works", "/early-access", "/no-such-page"]) {
+  for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/sports", "/business", "/politics", "/finance", "/how-it-works", "/early-access", "/terms", "/privacy", "/no-such-page"]) {
     await expectBranded(page, path);
   }
   await page.goto("/");

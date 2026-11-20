@@ -45,7 +45,9 @@ export function Footer() {
         </div>
       </Container>
       <div className="border-t border-line py-5 text-center text-xs text-muted">
-        © 2026 {brand.name}. All rights reserved. · {brand.domain}
+        © 2026 {brand.name}. All rights reserved. · {brand.domain} ·{" "}
+        <Link className="hover:text-ink" href="/terms">Terms</Link> ·{" "}
+        <Link className="hover:text-ink" href="/privacy">Privacy</Link>
       </div>
     </footer>
   );

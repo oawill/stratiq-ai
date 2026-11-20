@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { earlyAccessEmail, sendQuietly } from "@/lib/email";
 import { getPool } from "@/lib/db";
 import { signupSchema } from "@/lib/signup";
 
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+    after(() => sendQuietly(earlyAccessEmail(d.email, d.fullName)));
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("early-access insert failed", err instanceof Error ? err.message : err);

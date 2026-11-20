@@ -1,7 +1,9 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
+import { sendQuietly, welcomeEmail } from "@/lib/email";
 import { z } from "zod";
 import { createSession, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
 import { getPool } from "@/lib/db";
@@ -72,6 +74,7 @@ export async function signup(_: FormState | undefined, form: FormData): Promise<
     client.release();
   }
   await createSession(userId);
+  after(() => sendQuietly(welcomeEmail(email, name)));
   redirect(safeNext(form.get("next")));
 }
 
