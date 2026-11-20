@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { Badge, ErrorPanel, PageTitle, Panel } from "@/components/dashboard/ui";
@@ -30,9 +31,9 @@ export default async function Page() {
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-xs text-muted">Inviting teammates is not available yet.</p>
+        <p className="mt-4 text-xs text-muted">Invite teammates and manage roles on the <Link href="/dashboard/team" className="text-violet underline">Team page</Link>.</p>
       </Panel>
-      <LibraryClient />
+      <LibraryClient role={s.role} />
     </>
   );
 }

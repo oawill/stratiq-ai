@@ -329,6 +329,8 @@ from .finance_api import router as finance_router  # noqa: E402
 from .assistant_api import router as assistant_router  # noqa: E402
 from .library_api import router as library_router, ws_router  # noqa: E402
 from .billing_api import router as billing_router  # noqa: E402
+from .team_api import router as team_router  # noqa: E402
+from .comments_api import router as comments_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
@@ -339,3 +341,5 @@ app.include_router(assistant_router)
 app.include_router(library_router)
 app.include_router(ws_router)
 app.include_router(billing_router)
+app.include_router(team_router)
+app.include_router(comments_router)

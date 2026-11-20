@@ -15,7 +15,7 @@ async function handle(req: Request, ctx: { params: Promise<{ path: string[] }> }
     if (!origin || new URL(origin).host !== host) {
       return NextResponse.json({ detail: "Cross-origin request blocked" }, { status: 403 });
     }
-    if (req.method === "POST" && !req.headers.get("content-type")?.includes("application/json")) {
+    if ((req.method === "POST" || req.method === "PATCH") && !req.headers.get("content-type")?.includes("application/json")) {
       return NextResponse.json({ detail: "Expected JSON" }, { status: 415 });
     }
   }
@@ -23,7 +23,7 @@ async function handle(req: Request, ctx: { params: Promise<{ path: string[] }> }
   const { path } = await ctx.params;
   const url = new URL(req.url);
   const target = `${apiBase()}/api/v1/${path.map(encodeURIComponent).join("/")}${url.search}`;
-  const hasBody = req.method === "POST";
+  const hasBody = req.method === "POST" || req.method === "PATCH";
   const res = await fetch(target, {
     method: req.method,
     cache: "no-store",
@@ -42,4 +42,4 @@ async function handle(req: Request, ctx: { params: Promise<{ path: string[] }> }
   return new NextResponse(res.status === 204 ? null : res.body, { status: res.status, headers });
 }
 
-export { handle as GET, handle as POST, handle as DELETE };
+export { handle as GET, handle as POST, handle as PATCH, handle as DELETE };

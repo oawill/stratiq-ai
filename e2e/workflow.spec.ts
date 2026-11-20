@@ -72,6 +72,7 @@ test("anonymous visitors cannot reach the application or its API", async ({ page
   // Billing endpoints: anonymous checkout is refused, and the webhook never accepts unsigned requests.
   expect((await request.post("/api/billing/checkout", { data: { plan: "strategy_pro", interval: "month" } })).status()).toBe(401);
   expect((await request.post("/api/billing/portal", { data: {} })).status()).toBe(401);
+  expect((await request.post("/api/team/invites", { data: { email: "x@example.com", role: "member" } })).status()).toBe(401);
   expect([400, 503]).toContain((await request.post("/api/stripe/webhook", { data: "{}" })).status());
 });
 
@@ -98,7 +99,7 @@ test("landing page leads to a working account and every module", async ({ page }
     for (const n of ["VELQORIN Sports", "VELQORIN Strategy", "VELQORIN Politics", "VELQORIN Markets", "VELQORIN SimLab"]) {
       await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: n })).toBeVisible();
     }
-    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/billing", "/dashboard/settings"]) {
+    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/team", "/dashboard/billing", "/dashboard/settings"]) {
       await expectBranded(page, path);
     }
     await page.goto("/dashboard");
@@ -206,6 +207,89 @@ test("landing page leads to a working account and every module", async ({ page }
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page.getByText("Incorrect email or password.")).toBeVisible();
   });
+});
+
+test("teammates: invite, accept, share work, comment, change role, remove", async ({ browser }) => {
+  const email2 = `e2e-${stamp}-b@stratiq.test`;
+  const owner = await (await browser.newContext()).newPage();
+  const mate = await (await browser.newContext()).newPage();
+  owner.on("dialog", (d) => d.accept());
+
+  await test.step("the owner creates an invitation and gets a one-time link", async () => {
+    await owner.goto("/login");
+    await owner.getByLabel("Email").fill(email);
+    await owner.getByLabel("Password").fill(password);
+    await owner.getByRole("button", { name: "Log in" }).click();
+    await expect(owner).toHaveURL(/\/dashboard$/);
+    await owner.goto("/dashboard/team");
+    await expect(owner.getByRole("heading", { name: "Team" })).toBeVisible();
+    await owner.getByLabel("Email address").fill(email2);
+    await owner.getByRole("button", { name: "Create invitation" }).click();
+    await expect(owner.getByRole("status").filter({ hasText: "Invitation created" })).toBeVisible();
+  });
+  const link = await owner.getByLabel("Invitation link").inputValue();
+  expect(link).toMatch(/\/invite\/[A-Za-z0-9_-]{40,}$/);
+  const path = new URL(link).pathname;
+
+  await test.step("the invitee signs up from the link and accepts", async () => {
+    await mate.goto(path);
+    await expect(mate.getByRole("heading", { name: "You're invited" })).toBeVisible();
+    await mate.getByRole("link", { name: "Create account" }).click();
+    await mate.getByLabel("Name").fill("E2E Teammate");
+    await mate.getByLabel("Email").fill(email2);
+    await mate.getByLabel("Password").fill(password);
+    await mate.getByRole("button", { name: "Create account" }).click();
+    await expect(mate).toHaveURL(/\/invite\//); // sign-up returns to the invitation
+    await mate.getByRole("button", { name: "Accept invitation" }).click();
+    await expect(mate).toHaveURL(/\/dashboard$/);
+  });
+
+  await test.step("a used link stops working", async () => {
+    const anon = await (await browser.newContext()).newPage();
+    await anon.goto(path);
+    await expect(anon.getByRole("heading", { name: "Invitation not available" })).toBeVisible();
+    await anon.close();
+  });
+
+  await test.step("the teammate sees the owner's saved work and comments on it", async () => {
+    await mate.goto("/dashboard/workspace");
+    const row = mate.locator("li", { hasText: "E2E price war" }).first();
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: "Comments" }).click();
+    await row.getByLabel("Add a comment").fill("Looks right to me");
+    await row.getByRole("button", { name: "Comment", exact: true }).click();
+    await expect(row.getByText("Looks right to me")).toBeVisible();
+  });
+
+  await test.step("the owner sees the comment and the join in the activity feed", async () => {
+    await owner.goto("/dashboard/workspace");
+    const row = owner.locator("li", { hasText: "E2E price war" }).first();
+    await row.getByRole("button", { name: "Comments" }).click();
+    await expect(row.getByText("Looks right to me")).toBeVisible();
+    await expect(row.getByText("E2E Teammate").first()).toBeVisible();
+    await owner.goto("/dashboard/team");
+    await expect(owner.getByLabel("Workspace activity").getByText(/E2E Teammate joined as member/)).toBeVisible();
+    await expect(owner.getByLabel("Workspace activity").getByText("Commented on a scenario")).toBeVisible();
+  });
+
+  await test.step("downgrading the teammate to viewer makes the workspace read-only for them", async () => {
+    await owner.getByLabel("Role for E2E Teammate").selectOption("viewer");
+    await expect(owner.getByLabel("Role for E2E Teammate")).toHaveValue("viewer");
+    await mate.goto("/dashboard/workspace");
+    const row = mate.locator("li", { hasText: "E2E price war" }).first();
+    await row.getByRole("button", { name: "Comments" }).click();
+    await expect(row.getByText("Viewers can read comments but not post.")).toBeVisible();
+  });
+
+  await test.step("removing the teammate ends their access to the workspace", async () => {
+    await owner.getByRole("button", { name: "Remove" }).click();
+    await expect(owner.getByLabel("Workspace members").getByText("E2E Teammate")).toHaveCount(0);
+    await mate.goto("/dashboard/workspace");
+    await expect(mate.getByText("E2E price war")).toHaveCount(0);
+  });
+
+  await owner.context().close();
+  await mate.context().close();
 });
 
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {

@@ -9,6 +9,7 @@ import {
   LineChart,
   CreditCard,
   Settings,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { brand } from "@/lib/brand";
@@ -30,6 +31,7 @@ export const DASH_NAV: DashNav[] = [
   { label: brand.products.simlab.name, href: "/dashboard/simulations", icon: Beaker, keywords: "monte carlo seed scenario", status: "live" },
   { label: "Prediction History", href: "/dashboard/history", icon: History, keywords: "forecasts past saved", status: "live" },
   { label: "My Workspace", href: "/dashboard/workspace", icon: FolderKanban, keywords: "team members organization", status: "live" },
+  { label: "Team", href: "/dashboard/team", icon: Users, keywords: "members invite roles comments activity colleagues", status: "live" },
   { label: "Plan & Billing", href: "/dashboard/billing", icon: CreditCard, keywords: "subscription upgrade payment invoice stripe", status: "live" },
   { label: "Settings", href: "/dashboard/settings", icon: Settings, keywords: "account profile", status: "live" },
 ];

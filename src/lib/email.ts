@@ -35,6 +35,23 @@ export function welcomeEmail(to: string, name: string): Mail {
   };
 }
 
+export function inviteEmail(to: string, inviterName: string, workspaceName: string, role: string, link: string): Mail {
+  return {
+    to,
+    subject: `${inviterName} invited you to ${workspaceName} on ${brand.name}`,
+    text: `${inviterName} invited you to join the workspace "${workspaceName}" on ${brand.name} as ${role}.
+
+Accept the invitation (the link works once, for this email address, for 7 days):
+${link}
+
+If you were not expecting this, you can ignore this email.
+`,
+    html: layout(`<p>${esc(inviterName)} invited you to join the workspace <strong>${esc(workspaceName)}</strong> on ${brand.name} as ${esc(role)}.</p><p><a href="${esc(link)}">Accept the invitation</a></p><p style="color:#667;font-size:13px">The link works once, for this email address, for 7 days. If you were not expecting this, you can ignore this email.</p>`),
+  };
+}
+
+export const emailConfigured = () => Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+
 export async function sendEmail(mail: Mail): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;

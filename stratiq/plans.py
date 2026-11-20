@@ -20,12 +20,13 @@ class Limits:
     runs: int | None          # saved simulation runs
     iterations: int           # max Monte Carlo iterations per run
     exports: bool             # report downloads and full workspace export
+    seats: int                # members plus pending invitations (only enforced when billing is)
 
 
 PLANS: dict[str, tuple[str, Limits]] = {
-    "explorer": ("Explorer", Limits(predictions=10, scenarios=3, runs=3, iterations=10_000, exports=False)),
-    "sports_pro": ("Sports Pro", Limits(predictions=None, scenarios=3, runs=3, iterations=10_000, exports=False)),
-    "strategy_pro": ("Strategy Pro", Limits(predictions=None, scenarios=None, runs=None, iterations=200_000, exports=True)),
+    "explorer": ("Explorer", Limits(predictions=10, scenarios=3, runs=3, iterations=10_000, exports=False, seats=2)),
+    "sports_pro": ("Sports Pro", Limits(predictions=None, scenarios=3, runs=3, iterations=10_000, exports=False, seats=2)),
+    "strategy_pro": ("Strategy Pro", Limits(predictions=None, scenarios=None, runs=None, iterations=200_000, exports=True, seats=5)),
 }
 
 
@@ -51,6 +52,11 @@ _COUNT_SQL = {
     "scenarios": "select count(*) as n from strategic_scenarios where workspace_id=%s",
     "runs": "select count(*) as n from simulation_runs where workspace_id=%s",
 }
+
+
+def seat_cap(conn, workspace_id: str) -> int | None:
+    """Max members plus pending invitations, or None (unlimited) while billing is not enforced (early access)."""
+    return limits_for(conn, workspace_id).seats if enforced() else None
 
 
 def usage(conn, workspace_id: str) -> dict[str, int]:

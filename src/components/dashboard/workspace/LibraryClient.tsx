@@ -8,6 +8,7 @@ import type { LibraryItem, WorkspaceRow } from "@/lib/types";
 import { Badge, Empty, ErrorPanel, Panel, dt } from "../ui";
 import { field } from "../analysis";
 import { ExplainToggle } from "../assistant/AssistantPanel";
+import { CommentsToggle } from "../team/Comments";
 
 const MODULE: Record<string, { label: string; href: string }> = {
   sports: { label: "Sports", href: "/dashboard/history" }, business: { label: "Business", href: "/dashboard/business" }, politics: { label: "Politics", href: "/dashboard/politics" },
@@ -56,7 +57,7 @@ function Workspaces() {
   );
 }
 
-function Library() {
+function Library({ canWrite }: { canWrite: boolean }) {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [items, setItems] = useState<LibraryItem[] | null>(null);
@@ -86,6 +87,7 @@ function Library() {
                 <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{it.title}</div><div className="text-[11px] text-muted">{KIND[it.kind] ?? it.kind} · {it.created_by_name} · {dt(it.created_at)}{it.type === "simulation" && ` · ${it.status}`}</div></div>
                 <Link href={m.href} className="text-xs text-violet underline">Open module</Link>
                 {(it.type !== "simulation" || it.status === "completed") && <ExplainToggle type={it.type} id={it.id} title={it.title} />}
+                <CommentsToggle type={it.type} id={it.id} canWrite={canWrite} />
               </li>);
           })}
         </ul>)}
@@ -93,6 +95,6 @@ function Library() {
   );
 }
 
-export function LibraryClient() {
-  return <div className="mt-4 space-y-4"><Workspaces /><Library /></div>;
+export function LibraryClient({ role }: { role: string }) {
+  return <div className="mt-4 space-y-4"><Workspaces /><Library canWrite={role !== "viewer"} /></div>;
 }

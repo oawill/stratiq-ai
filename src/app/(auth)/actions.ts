@@ -28,7 +28,9 @@ async function clientIp() {
 
 const safeNext = (v: FormDataEntryValue | null) => {
   const s = typeof v === "string" ? v : "";
-  return s.startsWith("/dashboard") && !s.startsWith("//") ? s : "/dashboard";
+  // Only in-app destinations: the dashboard, or an invitation link (so invited people can sign in or sign up and land on it).
+  const ok = s.startsWith("/dashboard") || /^\/invite\/[A-Za-z0-9_-]{20,100}$/.test(s);
+  return ok && !s.startsWith("//") ? s : "/dashboard";
 };
 
 const signupSchema = z.object({
