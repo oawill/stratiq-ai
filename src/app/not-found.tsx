@@ -10,7 +10,7 @@ export default function NotFound() {
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">This page could not be found</h1>
       <p className="mt-3 max-w-md text-muted">The page you were looking for does not exist on {brand.name}, or it has moved.</p>
       <div className="mt-8 flex gap-3">
-        <Link href="/" className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-[#9168ff]">Back to {brand.shortName}</Link>
+        <Link href="/" className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-[#9168ff]">Back to {brand.name}</Link>
         <Link href="/dashboard" className="rounded-xl border border-line bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10">Open dashboard</Link>
       </div>
     </main>

@@ -28,8 +28,7 @@ export function Logo() {
     <Link href="/" className="flex items-center gap-2.5" aria-label={brand.name}>
       <LogoMark />
       <span className="text-[17px] font-bold tracking-[0.12em]">
-        {brand.shortName}
-        <span className="tracking-normal text-violet">.ai</span>
+        {brand.name}
       </span>
     </Link>
   );

@@ -18,13 +18,15 @@ async function signUp(page: Page) {
 // Likewise, URLs on the existing hosting hostname (stratiq-ai.vercel.app) are addresses, not branding; they change at domain cutover.
 const withoutTestEmails = (t: string) => t.replace(/[\w.+-]+@stratiq\.test/g, "").replace(/https?:\/\/[\w.-]*stratiq[\w.-]*/g, "");
 
-/** Every page a visitor can see must carry the VELQORIN.ai brand and never the previous name. */
+/** Every page a visitor can see must carry the VELQORIN brand (never "VELQORIN.ai" as a name, never the previous name). */
 async function expectBranded(page: Page, path: string) {
   await page.goto(path);
   await page.waitForLoadState("networkidle");
   await expect(page, `${path} title`).toHaveTitle(/VELQORIN/);
   const text = withoutTestEmails(await page.evaluate(() => document.body.innerText));
   expect(text, `${path} shows the previous brand name`).not.toMatch(/stratiq/i);
+  // velqorin.ai is the website address, not the brand: it may appear only in lower case (the footer address).
+  expect(text, `${path} uses VELQORIN.ai as a brand`).not.toMatch(/VELQORIN\.ai|Velqorin\.ai/);
   const html = await page.content();
   const leftover = withoutTestEmails(html).replace(/(src|href|action|name|id|content)="[^"]*"/g, "").match(/.{0,50}stratiq.{0,50}/gi) ?? [];
   expect(leftover, `${path} markup mentions the previous brand`).toEqual([]);
@@ -32,21 +34,23 @@ async function expectBranded(page: Page, path: string) {
 
 test.describe.configure({ mode: "serial" });
 
-test("public pages, metadata and assets carry the VELQORIN.ai brand", async ({ page, request }) => {
+test("public pages, metadata and assets carry the VELQORIN brand", async ({ page, request }) => {
   for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/sports", "/business", "/politics", "/finance", "/how-it-works", "/early-access", "/no-such-page"]) {
     await expectBranded(page, path);
   }
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "VELQORIN.ai" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "VELQORIN", exact: true }).first()).toBeVisible();
   await expect(page.getByText("Intelligence Beyond Prediction").first()).toBeVisible();
   await expect(page.getByText("Predict. Simulate. Strategize.").first()).toBeVisible();
-  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "VELQORIN.ai");
+  await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "VELQORIN");
+  await expect(page).toHaveTitle("VELQORIN | AI Prediction & Strategic Intelligence");
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "Explore AI-powered sports predictions, business game theory, political scenarios, and financial intelligence with VELQORIN.");
   await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
   const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) ?? "{}");
-  expect(ld.name).toBe("VELQORIN.ai");
+  expect(ld.name).toBe("VELQORIN");
   expect(ld.slogan).toBe("Intelligence Beyond Prediction");
   const manifest = await (await request.get("/manifest.webmanifest")).json();
-  expect(manifest.name).toBe("VELQORIN.ai");
+  expect(manifest.name).toBe("VELQORIN");
   expect(manifest.short_name).toBe("VELQORIN");
   for (const asset of ["/icon.svg", "/favicon.ico", "/apple-icon.png", "/opengraph-image.png", "/icons/icon-192.png", "/icons/icon-512.png"]) {
     const res = await request.get(asset);
@@ -71,6 +75,10 @@ test("landing page leads to a working account and every module", async ({ page }
   await test.step("landing page", async () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Predict Outcomes.");
+    await expect(page.getByRole("link", { name: "Explore VELQORIN", exact: true })).toHaveAttribute("href", "#demo");
+    await page.getByRole("link", { name: "See How It Works" }).first().click();
+    await expect(page).toHaveURL(/\/how-it-works/);
+    await page.goto("/");
     await page.getByRole("link", { name: "Log In" }).first().click();
     await expect(page).toHaveURL(/\/login/);
     await page.getByRole("link", { name: "Create one" }).click();

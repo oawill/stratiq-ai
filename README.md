@@ -1,8 +1,8 @@
-# VELQORIN.ai
+# VELQORIN
 
 *Intelligence Beyond Prediction.* Formerly named STRATIQ AI: see [REBRAND.md](REBRAND.md) for what changed and which internal identifiers intentionally kept the old name.
 
-Premium dark-mode marketing site and analysis workspace for VELQORIN.ai. Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4, Framer Motion, Recharts, Lucide, PostgreSQL via `pg`.
+Premium dark-mode marketing site and analysis workspace for VELQORIN. Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4, Framer Motion, Recharts, Lucide, PostgreSQL via `pg`.
 
 ## Setup
 

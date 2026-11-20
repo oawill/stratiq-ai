@@ -9,7 +9,7 @@ import { PricingTable } from "@/components/sections/PricingTable";
 import { CtaSignup } from "@/components/sections/CtaSignup";
 
 export const metadata: Metadata = {
-  title: { absolute: `${brand.name} — ${brand.tagline}` },
+  title: { absolute: brand.homeTitle },
   alternates: { canonical: "/" },
 };
 

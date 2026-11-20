@@ -3,7 +3,7 @@ import { brand } from "@/lib/brand";
 import { PageTitle } from "@/components/dashboard/ui";
 import { SimWorkspace } from "@/components/dashboard/simulations/SimWorkspace";
 
-export const metadata: Metadata = { title: brand.products.simlab.name };
+export const metadata: Metadata = { title: { absolute: `${brand.products.simlab.name} | Dashboard` } };
 
 export default function Page() {
   return (

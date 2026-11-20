@@ -31,7 +31,7 @@ export function Hero() {
             <span className="text-gradient">{LEAD}</span> {REST.join(" ")}
           </h1>
           <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-            {brand.description}
+            {brand.heroDescription}
           </p>
           <ul className="mt-6 space-y-2.5">
             {VALUES.map((v) => (
@@ -42,11 +42,11 @@ export function Hero() {
             ))}
           </ul>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <ButtonLink href="/early-access" className="py-3.5">
-              Get Early Access
+            <ButtonLink href="#demo" className="py-3.5">
+              Explore {brand.name}
             </ButtonLink>
-            <ButtonLink href="#demo" variant="secondary" className="py-3.5">
-              Explore the Platform
+            <ButtonLink href="/how-it-works" variant="secondary" className="py-3.5">
+              See How It Works
             </ButtonLink>
           </div>
           <p className="mt-5 text-xs text-muted">

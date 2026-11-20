@@ -1,7 +1,9 @@
 import { Activity, Briefcase, Landmark, LineChart, type LucideIcon } from "lucide-react";
 import { brand } from "./brand";
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// An explicit NEXT_PUBLIC_SITE_URL always wins (so existing canonical URLs and hosting are preserved). Without one,
+// production builds use the intended website and development uses localhost.
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.NODE_ENV === "production" ? brand.website : "http://localhost:3000");
 
 export interface Domain {
   slug: "sports" | "business" | "politics" | "finance";

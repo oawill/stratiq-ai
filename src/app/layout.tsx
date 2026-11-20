@@ -7,15 +7,13 @@ import { SITE_URL } from "@/lib/site";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-const title = `${brand.name} — ${brand.tagline}`;
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: brand.name,
-  title: { default: title, template: `%s | ${brand.name}` },
-  description: brand.shortDescription,
-  openGraph: { type: "website", siteName: brand.name, title, description: brand.shortDescription, locale: "en_US" },
-  twitter: { card: "summary_large_image", title, description: brand.shortDescription },
+  title: { default: brand.homeTitle, template: `%s | ${brand.name}` },
+  description: brand.metaDescription,
+  openGraph: { type: "website", siteName: brand.name, title: brand.homeTitle, description: brand.metaDescription, locale: "en_US" },
+  twitter: { card: "summary_large_image", title: brand.homeTitle, description: brand.metaDescription },
 };
 
 export const viewport: Viewport = { themeColor: "#080D1B", colorScheme: "dark" };
@@ -24,7 +22,6 @@ const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: brand.name,
-  alternateName: brand.shortName,
   url: SITE_URL,
   slogan: brand.tagline,
   description: brand.description,

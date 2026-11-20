@@ -1,4 +1,4 @@
-"""VELQORIN.ai FastAPI service, v1.
+"""VELQORIN FastAPI service, v1.
 
 Authentication: the Next.js server mints a short-lived HS256 JWT (INTERNAL_API_SECRET) after
 validating the user's session cookie. This service verifies it AND re-checks workspace

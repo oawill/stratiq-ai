@@ -3,7 +3,7 @@ import { brand } from "@/lib/brand";
 import { PageTitle } from "@/components/dashboard/ui";
 import { PoliticsWorkspace } from "@/components/dashboard/politics/PoliticsWorkspace";
 
-export const metadata: Metadata = { title: brand.products.politics.name };
+export const metadata: Metadata = { title: { absolute: `${brand.products.politics.name} | Dashboard` } };
 
 export default function Page() {
   return (

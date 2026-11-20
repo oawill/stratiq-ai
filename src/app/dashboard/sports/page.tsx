@@ -6,7 +6,7 @@ import type { League } from "@/lib/types";
 import { ErrorPanel, PageTitle } from "@/components/dashboard/ui";
 import { SportsWorkspace } from "@/components/dashboard/sports/SportsWorkspace";
 
-export const metadata: Metadata = { title: brand.products.sports.name };
+export const metadata: Metadata = { title: { absolute: `${brand.products.sports.name} | Dashboard` } };
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ league?: string; team?: string }> }) {
   const s = await requireSession();

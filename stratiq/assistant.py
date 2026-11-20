@@ -1,4 +1,4 @@
-"""The VELQORIN.ai assistant: explains structured results, never produces them.
+"""The VELQORIN assistant: explains structured results, never produces them.
 
 Two modes:
   * deterministic (always available): sentences assembled from the engines' own numbers (see explain.py);

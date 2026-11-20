@@ -3,7 +3,7 @@ import { brand } from "@/lib/brand";
 import { PageTitle } from "@/components/dashboard/ui";
 import { FinanceWorkspace } from "@/components/dashboard/finance/FinanceWorkspace";
 
-export const metadata: Metadata = { title: brand.products.markets.name };
+export const metadata: Metadata = { title: { absolute: `${brand.products.markets.name} | Dashboard` } };
 
 export default function Page() {
   return (
