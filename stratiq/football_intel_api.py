@@ -316,3 +316,82 @@ def reconcile(p: Auth, conn=Depends(get_conn)):
     """Score stored live forecasts whose match results have now been imported."""
     require_write(p)
     return {"scored": football_store.reconcile(conn, p.workspace_id)}
+
+
+# ------------------------------------------------------------------ data freshness, fixtures and results, saved predictions
+STALE_AFTER_DAYS = 14
+OFF_SEASON_MONTHS = (6, 7)       # the Premier League is normally between seasons in June and July
+
+
+def freshness_of(rows: list, upcoming: int, last_import, today: date) -> dict:
+    """How current the imported history is. Stale means no new result for a while at a time of year when matches are normally being played."""
+    from . import football_history as fh
+    if not rows:
+        return {"has_history": False, "stale": False, "note": "No match history is imported.", "upcoming_fixtures": upcoming, "last_import_at": last_import}
+    last = max(r[1] for r in rows)
+    days = (today - last).days
+    off = today.month in OFF_SEASON_MONTHS
+    stale = days > STALE_AFTER_DAYS and not off
+    current = fh.active_season(today)
+    cur_rows = [r for r in rows if r[0] == current]
+    if stale:
+        note = f"The newest stored result is {days} days old. Import the latest results so forecasts use current form."
+    elif days > STALE_AFTER_DAYS:
+        note = f"The newest stored result is {days} days old; the Premier League is normally between seasons at this time of year."
+    else:
+        note = f"Up to date: the newest stored result is {days} day{'s' if days != 1 else ''} old."
+    return {"has_history": True, "last_match": last.isoformat(), "days_since_last_match": days, "stale": stale, "off_season": off, "note": note, "last_import_at": last_import,
+            "upcoming_fixtures": upcoming, "stale_after_days": STALE_AFTER_DAYS,
+            "current_season": {"season": current, "matches_stored": len(cur_rows), "note": "Stored separately from the completed seasons: it is still being played, so it is never counted as a complete season."}}
+
+
+@router.get("/freshness")
+def freshness(p: Auth, conn=Depends(get_conn)):
+    rows = _stored(conn, p.workspace_id, COMPETITION)
+    today = _today()
+    up = conn.execute("select count(*) n from football_fixtures where workspace_id=%s and fixture_date >= %s", (p.workspace_id, today)).fetchone()["n"]
+    last = conn.execute("select max(created_at) t from match_imports where workspace_id=%s", (p.workspace_id,)).fetchone()["t"]
+    return freshness_of(rows, up, last, today)
+
+
+@router.get("/schedule")
+def schedule(p: Auth, conn=Depends(get_conn), results: int = Query(20, ge=1, le=100), days: int = Query(30, ge=1, le=90)):
+    """Recent results and upcoming imported fixtures, side by side. No forecasts are made here (see Match intelligence for those)."""
+    today = _today()
+    res = conn.execute(
+        "select season, match_date, home_team, away_team, home_goals, away_goals from match_history where workspace_id=%s and competition=%s order by match_date desc, home_team limit %s",
+        (p.workspace_id, COMPETITION, results)).fetchall()
+    fx = conn.execute("select season, fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s and fixture_date <= %s order by fixture_date, home_team",
+                      (p.workspace_id, today, today + timedelta(days=days))).fetchall()
+    tracked = {(r["fixture_date"], r["home_team"], r["away_team"]) for r in conn.execute(
+        "select distinct fixture_date, home_team, away_team from football_predictions where workspace_id=%s and kind='live' and fixture_date >= %s", (p.workspace_id, today)).fetchall()}
+    return {"results": [{"season": r["season"], "date": r["match_date"], "home": r["home_team"], "away": r["away_team"], "score": f"{r['home_goals']}-{r['away_goals']}"} for r in res],
+            "fixtures": [{"season": r["season"], "date": r["fixture_date"], "home": r["home_team"], "away": r["away_team"], "tracked": (r["fixture_date"], r["home_team"], r["away_team"]) in tracked} for r in fx],
+            "today": today.isoformat()}
+
+
+@router.get("/saved")
+def saved(p: Auth, conn=Depends(get_conn), limit: int = Query(25, ge=1, le=100), offset: int = Query(0, ge=0)):
+    """Forecasts stored before their match (kind 'live'), grouped by fixture, each with the model version, the training cutoff, when it was made and,
+    once the result is imported, the actual score and how the forecast scored. Historical backtest rows are NOT included: those are evaluation, not forecasts."""
+    keys = conn.execute(
+        """select fixture_date, home_team, away_team, max(created_at) latest from football_predictions where workspace_id=%s and kind='live'
+           group by fixture_date, home_team, away_team order by fixture_date desc, latest desc limit %s offset %s""", (p.workspace_id, limit, offset)).fetchall()
+    total = conn.execute("select count(*) n from (select 1 from football_predictions where workspace_id=%s and kind='live' group by fixture_date, home_team, away_team) t", (p.workspace_id,)).fetchone()["n"]
+    out = []
+    for k in keys:
+        rows = conn.execute(
+            """select pr.id, pr.created_at, pr.cutoff, pr.p_home, pr.p_draw, pr.p_away, pr.expected_home, pr.expected_away, v.name model, v.version, v.data_sha256,
+                      o.home_goals, o.away_goals, o.outcome, o.log_loss, o.correct
+               from football_predictions pr join football_model_versions v on v.id=pr.model_version_id left join football_prediction_outcomes o on o.prediction_id=pr.id
+               where pr.workspace_id=%s and pr.kind='live' and pr.fixture_date=%s and pr.home_team=%s and pr.away_team=%s order by v.name""",
+            (p.workspace_id, k["fixture_date"], k["home_team"], k["away_team"])).fetchall()
+        scored = [r for r in rows if r["outcome"] is not None]
+        out.append({"date": k["fixture_date"], "home": k["home_team"], "away": k["away_team"], "status": "scored" if scored else "waiting",
+                    "result": f"{scored[0]['home_goals']}-{scored[0]['away_goals']}" if scored else None, "outcome": scored[0]["outcome"] if scored else None,
+                    "forecasts": [{"id": str(r["id"]), "model": fi.MODEL_NAMES.get(r["model"], r["model"]), "key": r["model"], "version": r["version"], "made_at": r["created_at"], "training_cutoff": r["cutoff"],
+                                   "data_sha256": r["data_sha256"], "p_home": r["p_home"], "p_draw": r["p_draw"], "p_away": r["p_away"],
+                                   "expected_goals": [r["expected_home"], r["expected_away"]] if r["expected_home"] is not None else None,
+                                   "log_loss": r["log_loss"], "correct": r["correct"]} for r in rows]})
+    return {"total": total, "limit": limit, "offset": offset, "fixtures": out,
+            "note": "Each forecast was stored before its match with only the matches played before its training cutoff. A probability is not a confidence score and a single scored match says little about a model."}

@@ -94,6 +94,12 @@ def team_profile(matches: list[M], team: str, before: date | None = None) -> dic
             "failed_to_score_rate": round(sum(1 for r in seq if r[0] == 0) / n, 4),
         })
     out.update({"home": _venue(home), "away": _venue(away), "form_last_5": _form(seq, 5), "form_last_10": _form(seq, 10)})
+    if mine:
+        ref = before or date.today()
+        out["coverage"] = {"first_match": mine[0][0].isoformat(), "last_match": mine[-1][0].isoformat(), "matches": n,
+                           "note": "League matches in your imported data only; cups and European matches are not included, so rest days are overstated for clubs that play them."}
+        out["days_since_last_match"] = max(0, (ref - mine[-1][0]).days)
+    out["sample_note"] = "Fewer than about 30 matches makes any rate here uncertain." if n < 30 else "Rates are averages over every match in the imported data before the as-of date."
     ratings = elo_ratings(matches, before)
     out["elo"] = round(ratings.get(team, ELO_START), 1)
     if prior:

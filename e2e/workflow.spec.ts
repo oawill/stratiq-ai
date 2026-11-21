@@ -633,6 +633,10 @@ test("historical football data: import season files, see them checked, browse, e
 
   await test.step("a complete season and a season missing one match are both imported, and only one is called complete", async () => {
     await page.getByLabel(/Season files/).setInputFiles([file("E0_2022.csv", season(2022)), file("E0_2023.csv", season(2023, 1))]);
+    await section.getByLabel("Source address (URL)").fill("https://example.org/synthetic/E0.csv");
+    await section.getByLabel("Licence or terms of use").fill("Synthetic test data");
+    await section.getByLabel("Date you downloaded it").fill("2026-01-05");
+    await section.getByLabel("Dataset version (if any)").fill("test-v1");
     await page.getByRole("button", { name: "Import Historical Data" }).click();
     await expect(section.getByText(/380 accepted/)).toBeVisible();
     await expect(section.getByText(/379 accepted/)).toBeVisible();
@@ -653,6 +657,7 @@ test("historical football data: import season files, see them checked, browse, e
     await page.getByRole("button", { name: "Data Validation Report" }).click();
     await expect(section.getByText(/Missing \(1\)/)).toBeVisible();
     await expect(section.getByText("Failed:").first()).toBeAttached();
+    await expect(section.getByText("Source: https://example.org/synthetic/E0.csv · licence as stated: Synthetic test data · retrieved 2026-01-05 · version test-v1").first()).toBeVisible();
   });
 
   await test.step("matches can be browsed and filtered by club", async () => {
@@ -819,6 +824,34 @@ test("football intelligence: each data type shows its own requirements, then for
     await intel.getByRole("button", { name: "Check now" }).click();
     await expect(intel.getByText(/Checked\. \d+ finished forecasts? (was|were) scored/)).toBeVisible();
     await expect(intel.getByRole("cell", { name: "Checked, 0 scored" }).or(intel.getByRole("cell", { name: /Checked, \d+ scored/ })).first()).toBeVisible();
+  });
+
+  await test.step("team intelligence shows form, home and away splits with sample sizes, and opponent-adjusted strength", async () => {
+    await page.getByRole("tab", { name: "Team intelligence" }).click();
+    await expect(intel.getByText(/Choose a club to see its form/)).toBeVisible();
+    await intel.getByLabel("Club").selectOption("Arsenal");
+    await expect(intel.getByText("Elo rating", { exact: true })).toBeVisible();
+    await expect(intel.getByText("Clean sheets", { exact: true })).toBeVisible();
+    await expect(intel.getByRole("table", { name: /Home and away record with sample sizes/ })).toBeVisible();
+    await expect(intel.getByText("Strength, adjusted for opponents")).toBeVisible();
+    await expect(intel.getByText(/League matches in your imported data only|Rates are averages|Fewer than about 30/).first()).toBeVisible();
+  });
+
+  await test.step("fixtures and results are listed without making forecasts", async () => {
+    await page.getByRole("tab", { name: "Fixtures & results" }).click();
+    await expect(intel.getByRole("list", { name: "Latest results" }).getByRole("listitem").first()).toBeVisible();
+    await expect(intel.getByText(/No upcoming fixtures are imported/).or(intel.getByRole("list", { name: "Upcoming fixtures" })).first()).toBeVisible();
+  });
+
+  await test.step("saved predictions list only forecasts made before a match, never backtest rows", async () => {
+    await page.getByRole("tab", { name: "Saved predictions" }).click();
+    await expect(intel.getByText(/Made before the match/)).toBeVisible();
+    await expect(intel.getByText(/No forecast has been saved yet/).or(intel.getByRole("list", { name: "Saved predictions" })).first()).toBeVisible();
+    await expect(intel.getByText(/Backtests \(replays of past matches\) are on the Model performance tab/)).toBeVisible();
+  });
+
+  await test.step("a freshness banner says whether the imported data is current", async () => {
+    await expect(page.getByRole("status").filter({ hasText: /Stale data|Data current/ })).toBeVisible();
   });
 
   await test.step("watchlists: watch a club and see its status computed from the imported matches", async () => {

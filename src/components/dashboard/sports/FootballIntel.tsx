@@ -7,6 +7,7 @@ import { call, post } from "@/lib/client";
 import { Badge, Empty, ErrorPanel, Panel, dt, pct } from "../ui";
 import { field } from "../analysis";
 import { OpsTab } from "./FootballOps";
+import { FreshnessBanner, SavedTab, ScheduleTab, TeamTab } from "./FootballWorkbench";
 import { FACTOR_NAMES, MatchTab, NoHistory, ProbBar, SimulatorTab, type Forecast } from "./FootballMatch";
 
 // ------------------------------------------------------------------ A. today's matches
@@ -273,7 +274,7 @@ function SourcesTab() {
 }
 
 // ------------------------------------------------------------------ shell
-const TABS = [["today", "Today's matches"], ["match", "Match intelligence"], ["simulator", "Simulator"], ["performance", "Model performance"], ["operations", "Model operations"], ["sources", "Data & factors"]] as const;
+const TABS = [["today", "Today's matches"], ["match", "Match intelligence"], ["team", "Team intelligence"], ["schedule", "Fixtures & results"], ["saved", "Saved predictions"], ["simulator", "Simulator"], ["performance", "Model performance"], ["operations", "Model operations"], ["sources", "Data & factors"]] as const;
 type TabId = (typeof TABS)[number][0];
 const NAMES: Record<string, string> = { frequency: "Historical frequencies", elo: "Elo rating", poisson: "Time-weighted Poisson", dixon_coles: "Dixon-Coles", gbm: "Boosted trees", ensemble: "Calibrated ensemble" };
 
@@ -288,12 +289,16 @@ export function FootballIntel() {
   return (
     <div>
       <p className="mb-3 text-xs leading-relaxed text-muted">Forecasts from three statistical models (Elo, time-weighted Poisson, Dixon-Coles) and, after a backtest, a boosted-tree model and a calibrated ensemble, all built on the Premier League results you imported. They use match results only: anything else (injuries, expected goals, odds) is shown as unavailable unless you upload it. Probabilities are estimates, never guarantees.</p>
+      <FreshnessBanner />
       <div role="tablist" aria-label="Football intelligence" onKeyDown={onKey} className="mb-4 inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-bg/60 p-1">
         {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold ${tab === id ? "bg-primary text-white" : "text-muted hover:text-ink"}`}>{label}</button>)}
       </div>
       <div role="tabpanel">
         {tab === "today" && <TodayTab onOpen={(f) => { setOpen(f); setTab("match"); }} />}
         {tab === "match" && <MatchTab key={open ? `${open.home}${open.away}${open.kickoff}` : "free"} initial={open} />}
+        {tab === "team" && <TeamTab />}
+        {tab === "schedule" && <ScheduleTab onOpen={(f) => { setOpen(f); setTab("match"); }} />}
+        {tab === "saved" && <SavedTab />}
         {tab === "simulator" && <SimulatorTab />}
         {tab === "performance" && <PerformanceTab names={NAMES} />}
         {tab === "operations" && <OpsTab />}
