@@ -202,6 +202,101 @@ def mixed_2x2(g: Game) -> dict | None:
     }
 
 
+# ------------------------------------------------------------------ all equilibria by support enumeration (small games)
+MAX_MIXED = 6        # support enumeration is exact but grows quickly; beyond 6 x 6 it is not attempted
+
+
+def _solve(M: list[list[Fraction]], b: list[Fraction]) -> list[Fraction] | None:
+    """Exact Gaussian elimination. Returns None when the system is singular (no unique solution)."""
+    n = len(b)
+    a = [row[:] + [b[i]] for i, row in enumerate(M)]
+    for col in range(n):
+        piv = next((r for r in range(col, n) if a[r][col] != 0), None)
+        if piv is None:
+            return None
+        a[col], a[piv] = a[piv], a[col]
+        inv = 1 / a[col][col]
+        a[col] = [v * inv for v in a[col]]
+        for r in range(n):
+            if r != col and a[r][col] != 0:
+                f = a[r][col]
+                a[r] = [x - f * y for x, y in zip(a[r], a[col])]
+    return [a[i][n] for i in range(n)]
+
+
+def _indifference(payoff_rows: list[list[Fraction]]) -> tuple[list[Fraction], Fraction] | None:
+    """Mix over k options so every one of the k rows of `payoff_rows` (k x k) earns the same value v. Returns (mix, v) or None."""
+    k = len(payoff_rows)
+    M = [[payoff_rows[i][j] for j in range(k)] + [Fraction(-1)] for i in range(k)] + [[Fraction(1)] * k + [Fraction(0)]]
+    sol = _solve(M, [Fraction(0)] * k + [Fraction(1)])
+    return None if sol is None else (sol[:k], sol[k])
+
+
+def mixed_equilibria(g: Game) -> dict:
+    """Every Nash equilibrium (pure and mixed) of a small game, by support enumeration with exact arithmetic.
+
+    For each pair of equal-size supports it solves for the mixes that make each player indifferent between the strategies it plays, then keeps
+    the pair only if every probability is strictly positive and no strategy outside the support does better. For a non-degenerate game this
+    finds all equilibria. A degenerate game (ties in payoffs) can have a continuum of equilibria; only isolated ones are listed.
+    """
+    if g.R > MAX_MIXED or g.C > MAX_MIXED:
+        return {"attempted": False, "reason": f"Mixed equilibria are only computed up to {MAX_MIXED} x {MAX_MIXED} strategies.", "equilibria": [], "count": 0}
+    from itertools import combinations
+    found: list[dict] = []
+    seen: set[tuple] = set()
+    for k in range(1, min(g.R, g.C) + 1):
+        for I in combinations(range(g.R), k):
+            for J in combinations(range(g.C), k):
+                if k == 1:
+                    x, y, v, u = [Fraction(1)], [Fraction(1)], g.A[I[0]][J[0]], g.B[I[0]][J[0]]
+                else:
+                    col_side = _indifference([[g.A[i][j] for j in J] for i in I])          # column mix y making the row player indifferent
+                    row_side = _indifference([[g.B[i][j] for i in I] for j in J])          # row mix x making the column player indifferent
+                    if col_side is None or row_side is None:
+                        continue
+                    (y, v), (x, u) = col_side, row_side
+                    if any(q <= 0 for q in x) or any(q <= 0 for q in y):
+                        continue
+                xf = [Fraction(0)] * g.R
+                yf = [Fraction(0)] * g.C
+                for t, i in enumerate(I):
+                    xf[i] = x[t]
+                for t, j in enumerate(J):
+                    yf[j] = y[t]
+                # no profitable deviation outside the supports
+                if any(sum(g.A[i][j] * yf[j] for j in range(g.C)) > v for i in range(g.R) if i not in I):
+                    continue
+                if any(sum(g.B[i][j] * xf[i] for i in range(g.R)) > u for j in range(g.C) if j not in J):
+                    continue
+                key = (tuple(xf), tuple(yf))
+                if key in seen:
+                    continue
+                seen.add(key)
+                found.append({"type": "pure" if k == 1 else "mixed", "row_support": list(I), "col_support": list(J),
+                              "row_probs": [_f(q) for q in xf], "col_probs": [_f(q) for q in yf],
+                              "row_probs_exact": [str(q) for q in xf], "col_probs_exact": [str(q) for q in yf],
+                              "expected_payoffs": [_f(v), _f(u)]})
+    return {"attempted": True, "equilibria": found, "count": len(found),
+            "note": "Found by exact support enumeration. In a game with tied payoffs there may also be a continuum of equilibria that is not listed."}
+
+
+def explain_equilibria(g: Game, eqs: list[dict]) -> list[str]:
+    """One plain-language sentence per equilibrium, stating what it assumes."""
+    out = []
+    for e in eqs:
+        rs = ", ".join(f"{g.rows[i]} {e['row_probs'][i]:.1%}" for i in e["row_support"])
+        cs = ", ".join(f"{g.cols[j]} {e['col_probs'][j]:.1%}" for j in e["col_support"])
+        if e["type"] == "pure":
+            out.append(f"Pure equilibrium: the row player plays {g.rows[e['row_support'][0]]} and the column player plays {g.cols[e['col_support'][0]]}. Each is already playing a best reply to the other, so neither gains by switching alone (payoffs {e['expected_payoffs'][0]:g} and {e['expected_payoffs'][1]:g}).")
+        else:
+            out.append(f"Mixed equilibrium: the row player randomises ({rs}) and the column player randomises ({cs}). Each player is exactly indifferent between the strategies it uses, so neither can gain by changing the odds (expected payoffs {e['expected_payoffs'][0]:.3g} and {e['expected_payoffs'][1]:.3g}).")
+    return out
+
+
+ASSUMPTIONS = ("Two players who know both payoff tables, choose once and simultaneously, and each maximise their own payoff. Payoffs are the numbers you entered: "
+               "the engine does not know whether they describe a real situation. An equilibrium is a prediction about stable play, not a recommendation or a forecast of what will happen.")
+
+
 # ------------------------------------------------------------------ welfare
 def welfare(g: Game) -> dict:
     cells = [(r, c) for r in range(g.R) for c in range(g.C)]
@@ -225,10 +320,11 @@ def welfare(g: Game) -> dict:
 # ------------------------------------------------------------------ top-level analysis
 def analyse(g: Game) -> dict:
     nash = pure_nash(g)
+    eq_all = mixed_equilibria(g)
     w = welfare(g)
     notes = []
     if not nash:
-        notes.append("No pure-strategy Nash equilibrium exists." + (" See the mixed equilibrium." if mixed_2x2(g) else ""))
+        notes.append("No pure-strategy Nash equilibrium exists." + (" See the mixed equilibrium." if eq_all["equilibria"] else ""))
     nash_cells = [{"row": r, "col": c, "payoffs": [_f(g.A[r][c]), _f(g.B[r][c])]} for r, c in nash]
     nash_set = {(r, c) for r, c in nash}
     pareto_set = {(x["row"], x["col"]) for x in w["pareto_optimal"]}
@@ -240,6 +336,9 @@ def analyse(g: Game) -> dict:
         "dominance": dominance(g),
         "iterated_elimination": iterated_elimination(g),
         "mixed_2x2": mixed_2x2(g),
+        "equilibria": eq_all,
+        "equilibrium_explanations": explain_equilibria(g, eq_all["equilibria"]) if eq_all["equilibria"] else [],
+        "assumptions": ASSUMPTIONS,
         **w,
         "notes": notes,
     }

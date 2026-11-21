@@ -337,6 +337,7 @@ from .football_intel_api import router as football_intel_router  # noqa: E402
 from .football_jobs_api import router as football_jobs_router  # noqa: E402
 from .watchlist_api import router as watchlist_router  # noqa: E402
 from .reports_api import router as reports_router  # noqa: E402
+from .simlab_api import router as simlab_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
@@ -355,3 +356,4 @@ app.include_router(football_intel_router)
 app.include_router(football_jobs_router)
 app.include_router(watchlist_router)
 app.include_router(reports_router)
+app.include_router(simlab_router)

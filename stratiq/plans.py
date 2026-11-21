@@ -50,7 +50,7 @@ def limits_for(conn, workspace_id: str) -> Limits:
 
 _COUNT_SQL = {
     "predictions": "select count(*) as n from predictions where workspace_id=%s",
-    "scenarios": "select count(*) as n from strategic_scenarios where workspace_id=%s",
+    "scenarios": "select (select count(*) from strategic_scenarios where workspace_id=%s) + (select count(*) from simlab_runs where workspace_id=%s) as n",
     "runs": "select count(*) as n from simulation_runs where workspace_id=%s",
     "datasets": "select count(*) as n from datasets where workspace_id=%s",
 }
@@ -62,7 +62,7 @@ def seat_cap(conn, workspace_id: str) -> int | None:
 
 
 def usage(conn, workspace_id: str) -> dict[str, int]:
-    return {k: int(conn.execute(sql, (workspace_id,)).fetchone()["n"]) for k, sql in _COUNT_SQL.items()}
+    return {k: int(conn.execute(sql, (workspace_id,) * sql.count("%s")).fetchone()["n"]) for k, sql in _COUNT_SQL.items()}
 
 
 def _refuse(message: str, code: str):
