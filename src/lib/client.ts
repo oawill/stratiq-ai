@@ -6,7 +6,7 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const d = j.detail;
     throw new Error(
-      typeof d === "string" ? d : Array.isArray(d) ? d.map((x: { loc?: unknown[]; msg?: string }) => `${(x.loc ?? []).slice(1).join(".")}: ${x.msg}`).join("; ") : "Request failed",
+      typeof d === "string" ? d : Array.isArray(d?.errors) ? d.errors.join(" ") : Array.isArray(d) ? d.map((x: { loc?: unknown[]; msg?: string }) => `${(x.loc ?? []).slice(1).join(".")}: ${x.msg}`).join("; ") : "Request failed",
     );
   }
   return j as T;

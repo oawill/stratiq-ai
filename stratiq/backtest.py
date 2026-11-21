@@ -22,20 +22,10 @@ MAX_EVAL = 400  # most recent matches scored; bounds the work (each one refits t
 BINS = 5
 
 
-def evaluate(matches: list[HistMatch], league_teams: list[str], dataset: str, min_train: int = 100, max_eval: int = MAX_EVAL) -> dict:
-    """Rolling-origin evaluation for uploaded data, with the context needed to read it honestly.
-
-    Each scored match is predicted from strictly earlier matches only. The model is compared with a baseline that
-    knows only how often home wins, draws and away wins happened before (Laplace-smoothed). Besides Brier score and
-    log loss it reports the hit rate, a paired estimate of the log-loss gain with a standard error, and a
-    reliability table (how often outcomes happened when the model said a given probability).
-    """
-    ordered = sorted(matches, key=lambda m: (m.kickoff, m.home, m.away))
-    if len(ordered) <= min_train:
-        return {"sample_size": 0, "min_train": min_train, "matches": len(ordered)}
-    start = max(min_train, len(ordered) - max_eval)
-    rows = []  # (model probs, baseline probs, outcome)
-    for i in range(start, len(ordered)):
+def score_rows(ordered: list[HistMatch], indices, league_teams: list[str], dataset: str) -> list[tuple]:
+    """For each index: (model probabilities, baseline probabilities, outcome), using only the matches before it."""
+    rows = []
+    for i in indices:
         m = ordered[i]
         prior = ordered[:i]
         pred = predict(prior, league_teams, m.home, m.away, m.kickoff, dataset)["outputs"]
@@ -43,6 +33,11 @@ def evaluate(matches: list[HistMatch], league_teams: list[str], dataset: str, mi
         counts = [sum(1 for x in prior if _outcome(x) == k) + 1 for k in range(3)]
         tot = sum(counts)
         rows.append((p, [c / tot for c in counts], _outcome(m)))
+    return rows
+
+
+def summarize(rows: list[tuple]) -> dict:
+    """Scores, the paired gain over the baseline (with its standard error), hit rates and a reliability table."""
     n = len(rows)
     ll = [_logloss(p, y) for p, _, y in rows]
     bl = [_logloss(b, y) for _, b, y in rows]
@@ -63,24 +58,41 @@ def evaluate(matches: list[HistMatch], league_teams: list[str], dataset: str, mi
         {"low": j / BINS, "high": (j + 1) / BINS, "count": c, "mean_predicted": sp / c, "observed": o / c}
         for j, (c, sp, o) in enumerate(buckets) if c
     ]
-    model_ll = sum(ll) / n
-    base_ll = sum(bl) / n
     return {
         "sample_size": n,
-        "matches": len(ordered),
-        "min_train": min_train,
-        "first_scored": ordered[start].kickoff.date().isoformat(),
-        "last_scored": ordered[-1].kickoff.date().isoformat(),
         "brier": sum(_brier(p, y) for p, _, y in rows) / n,
         "baseline_brier": sum(_brier(b, y) for _, b, y in rows) / n,
-        "log_loss": model_ll,
-        "baseline_log_loss": base_ll,
+        "log_loss": sum(ll) / n,
+        "baseline_log_loss": sum(bl) / n,
         "log_loss_gain": mean_d,
         "log_loss_gain_se": se,
         "gain_is_clear": bool(se > 0 and mean_d > 2 * se),
         "accuracy": hits / n,
         "baseline_accuracy": base_hits / n,
         "reliability": reliability,
+    }
+
+
+def evaluate(matches: list[HistMatch], league_teams: list[str], dataset: str, min_train: int = 100, max_eval: int = MAX_EVAL) -> dict:
+    """Rolling-origin evaluation for uploaded data, with the context needed to read it honestly.
+
+    Each scored match is predicted from strictly earlier matches only. The model is compared with a baseline that
+    knows only how often home wins, draws and away wins happened before (Laplace-smoothed). Besides Brier score and
+    log loss it reports the hit rate, a paired estimate of the log-loss gain with a standard error, and a
+    reliability table (how often outcomes happened when the model said a given probability).
+    """
+    ordered = sorted(matches, key=lambda m: (m.kickoff, m.home, m.away))
+    if len(ordered) <= min_train:
+        return {"sample_size": 0, "min_train": min_train, "matches": len(ordered)}
+    start = max(min_train, len(ordered) - max_eval)
+    res = summarize(score_rows(ordered, range(start, len(ordered)), league_teams, dataset))
+    return {
+        "sample_size": res["sample_size"],
+        "matches": len(ordered),
+        "min_train": min_train,
+        "first_scored": ordered[start].kickoff.date().isoformat(),
+        "last_scored": ordered[-1].kickoff.date().isoformat(),
+        **{k: v for k, v in res.items() if k != "sample_size"},
     }
 
 

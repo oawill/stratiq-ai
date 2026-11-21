@@ -399,6 +399,96 @@ test("bring your own data: upload, validate, and use it in Sports, SimLab, Marke
   });
 });
 
+test("historical football data: import season files, see them checked, browse, export, and use them for forecasts", async ({ page }) => {
+  // Two SYNTHETIC seasons (real club names, invented scores) generated here; no provider data is involved.
+  const clubs = ["Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton", "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham",
+    "Leeds", "Leicester", "Liverpool", "Man City", "Man United", "Newcastle", "Southampton", "Tottenham", "West Ham", "Wolves"];
+  const season = (year: number, dropLast = 0) => {
+    const rows = ["Div,Date,Time,HomeTeam,AwayTeam,FTHG,FTAG,FTR"];
+    let i = 0;
+    for (const h of clubs) for (const a of clubs) {
+      if (h === a) continue;
+      const d = new Date(Date.UTC(year, 7, 12) + 86_400_000 * 7 * Math.floor(i / 10));
+      const dd = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
+      rows.push(`E0,${dd},15:00,${h},${a},${(i * 7 + year) % 4},${(i * 5 + year) % 3},H`);
+      i++;
+    }
+    return rows.slice(0, rows.length - dropLast).join("\n") + "\n";
+  };
+  const file = (name: string, text: string) => ({ name, mimeType: "text/csv", buffer: Buffer.from(text) });
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto("/dashboard/data");
+  const section = page.getByRole("region", { name: "Historical Football Data" });
+  await expect(section.getByText("Nothing imported")).toBeVisible();
+
+  await test.step("a complete season and a season missing one match are both imported, and only one is called complete", async () => {
+    await page.getByLabel(/Season files/).setInputFiles([file("E0_2022.csv", season(2022)), file("E0_2023.csv", season(2023, 1))]);
+    await page.getByRole("button", { name: "Import Historical Data" }).click();
+    await expect(section.getByText(/380 accepted/)).toBeVisible();
+    await expect(section.getByText(/379 accepted/)).toBeVisible();
+    await expect(section.getByText("2022/23 Complete")).toBeVisible();
+    await expect(section.getByText("2023/24 Incomplete")).toBeVisible();
+    await expect(section.getByText("Data quality: Needs review")).toBeVisible();
+    await expect(section.getByText("759", { exact: true })).toBeVisible();
+  });
+
+  await test.step("repeating an import adds nothing", async () => {
+    await page.getByLabel(/Season files/).setInputFiles(file("E0_2022_again.csv", season(2022)));
+    await page.getByRole("button", { name: "Import Historical Data" }).click();
+    await expect(section.getByText(/0 new, 380 already stored/)).toBeVisible();
+    await expect(section.getByText("759", { exact: true })).toBeVisible();
+  });
+
+  await test.step("the validation report names what is missing", async () => {
+    await page.getByRole("button", { name: "Data Validation Report" }).click();
+    await expect(section.getByText(/Missing \(1\)/)).toBeVisible();
+    await expect(section.getByText("Failed:").first()).toBeAttached();
+  });
+
+  await test.step("matches can be browsed and filtered by club", async () => {
+    await page.getByRole("button", { name: "View Matches" }).click();
+    await section.getByLabel("Club").selectOption("Arsenal");
+    await expect(section.getByText("All seasons · 76 matches")).toBeVisible();
+    await section.getByLabel("Season", { exact: true }).selectOption("2022/23");
+    await expect(section.getByText("2022/23 · 38 matches")).toBeVisible();
+  });
+
+  await test.step("the export is the exact five-column CSV", async () => {
+    await section.getByLabel("Season", { exact: true }).selectOption("all");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download CSV" }).click()]);
+    expect(download.suggestedFilename()).toBe("velqorin_epl_all-seasons.csv");
+    const chunks: Buffer[] = [];
+    for await (const c of (await download.createReadStream())!) chunks.push(c as Buffer);
+    const lines = Buffer.concat(chunks).toString().trim().split("\n");
+    expect(lines[0]).toBe("date,home_team,away_team,home_goals,away_goals");
+    expect(lines).toHaveLength(760);
+    expect(lines.every((l) => l.split(",").length === 5)).toBe(true);
+    expect(lines.some((l) => l.includes("Man United") || l.includes("Man City"))).toBe(false);          // club names are standardised
+    expect(lines.some((l) => l.includes("Manchester United"))).toBe(true);
+  });
+
+  await test.step("the history becomes a dataset and shows what the model sees before a fixture", async () => {
+    await page.getByRole("button", { name: "Use in forecasts" }).click();
+    await section.getByLabel("Dataset name for forecasts").fill("E2E Premier League");
+    await section.getByRole("button", { name: "Create dataset" }).click();
+    await expect(section.getByRole("status").filter({ hasText: "Saved “E2E Premier League” (759 matches)" })).toBeVisible();
+    await section.getByLabel("Home club").selectOption("Arsenal");
+    await section.getByLabel("Away club").selectOption("Chelsea");
+    await section.getByRole("button", { name: "Show", exact: true }).click();
+    await expect(section.getByText(/Elo-style rating/).first()).toBeVisible();
+    await expect(section.getByText(/not provider-supplied expected goals|not provider expected goals/).first()).toBeVisible();
+    await expect(section.getByText(/Model projection: Arsenal/)).toBeVisible();
+    await page.goto("/dashboard/sports");
+    await page.getByRole("tab", { name: "Your data" }).click();
+    await page.getByLabel("Dataset", { exact: true }).selectOption({ label: "E2E Premier League" });
+  });
+});
+
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true });
   const page = await ctx.newPage();
@@ -411,7 +501,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
-  for (const path of ["/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace"]) {
+  for (const path of ["/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const { overflow, culprits } = await page.evaluate(() => {

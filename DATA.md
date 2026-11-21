@@ -40,6 +40,25 @@ It reports:
 
 Limits: it tests the model on that file, not on other leagues or future seasons; there is no tuning, so numbers are not inflated by fitting the test; it does not compare against betting markets, and it is not betting or financial advice. For reference, the existing seeded development data is simulated from the model's own assumptions, so its backtest only checks the code, while on one uploaded real Premier League season (380 matches, 280 scored) the model beat the baseline on log loss (1.064 against 1.102) and called 45% of results against 40%, but by a gain of 0.039 ± 0.023, under two standard errors, so it is unproven, and it was overconfident in the 60-80% band (said about 67%, happened 49%). One season cannot settle it.
 
+## Historical football data (Premier League)
+
+The Data page has a **Historical Football Data** section for ten seasons of English Premier League results. **VELQORIN does not download data from any provider.** The preferred public archive, football-data.co.uk, states that its data is for private individuals only and not for commercial products or automated bots, scrapers or AI, and VELQORIN has paid plans, so a server fetching and re-serving those files would go against that. People import files they are entitled to use (one file per season, or one combined file) and the provider's own terms apply to them. Moving to a licensed API later only needs a new source feeding the same `read_source` validation.
+
+**Import** (`POST /api/v1/football/import`, Members and above; "Check only" validates without saving): reads the football-data layout (`Date, HomeTeam, AwayTeam, FTHG, FTAG`, other columns ignored, day-first dates) or the five-column format. Full-time scores only; half-time columns are never used. Each row is accepted or rejected on its own with a line number and reason, and the report always gives exact counts:
+- **accepted** (new or already stored), **rejected**, **duplicate** (the same fixture repeated with the same score, dropped), **conflicting** (the same fixture with different scores, in the file or against what is stored: neither is accepted and nothing is overwritten), **missing** (fixtures a season lacks), and **not yet played** (future-dated rows, skipped).
+- Dates must be valid and not in the future; goals whole numbers 0 to 30; a past-dated row with no score is rejected, not filled in; a `Div` column other than `E0` is rejected; a row from another season than the file's is rejected (tick "Combined file" for multi-season files).
+- Club names go through one dictionary (`stratiq/football_teams.py`) covering all 34 clubs of 2016/17 to 2025/26. An unknown name is kept exactly as written with a warning, never guessed or merged, so a new club or a new spelling shows up in the report (and as an incomplete season) instead of silently becoming a different team. New clubs need adding to the dictionary.
+- Importing is idempotent: stored rows are unique on workspace, competition, season, date, home and away, so repeating a file adds nothing. To correct a score, remove the season (admins and owners) and import the corrected file.
+- Limits: 2 MB and 20,000 rows per file, at most 200 columns in a source file, and 20,000 stored matches per workspace.
+
+**Seasons are only called complete when every check passes:** 20 clubs, 380 matches, 38 for every club (19 home, 19 away), every pair meeting once at each ground, no repeated fixtures, and all dates inside the season (a season runs from August to the following July; 2019/20 finished on 26 July 2020). The season in progress (2026/27 today) is shown as "In progress" and is left out of the completeness checks. The report names missing fixtures and flags clubs with the wrong number of matches, which is how a misspelt club shows up.
+
+**Use it:** download the five-column CSV (`date,home_team,away_team,home_goals,away_goals`, oldest first, about 170 KB for ten seasons), view and filter matches, read the validation report, or "Create dataset" to save the history as a normal sports dataset that the Sports "Your data" tab can forecast and backtest. Season and source stay in the database (`match_history`, migration `0009_match_history.sql`) and are not in the export.
+
+**Prediction features** (`stratiq/football_features.py`, endpoints `team`, `fixture`, `evaluation`): win/draw/loss rates, home and away splits, goals for and against, average goals, clean-sheet rate, rolling 5- and 10-match form, head to head, an Elo-style rating (K 20, home advantage 65 points, goal-difference multiplier), attack and defence strength, and Poisson score probabilities. Goal rates are estimated from results and are labelled as such; they are not provider expected goals. Every figure takes a date and uses only matches played strictly before it. `evaluation` splits matches by time (first 60% to learn from, next 20% validation, last 20% test), scores the model on the last two against the base-rate baseline, and reports log loss, Brier score, hit rate and a reliability table. Nothing is tuned on either period.
+
+Not built: scheduled or automated synchronization (there is nothing to fetch), other competitions, and provider expected-goals data. The current season is kept up to date by importing its newer file again.
+
 ## Plans and permissions
 
 - Members and above can upload; viewers can read and use datasets but not add them; the uploader, admins and the owner can delete.
@@ -56,4 +75,4 @@ Limits: it tests the model on that file, not on other leagues or future seasons;
 
 ## Database
 
-Migration `0008_datasets.sql` adds the `datasets` table. It is additive and applied to the development database; **apply it to production before using the Data page there** (`node scripts/migrate.mjs` with production credentials).
+Migration `0008_datasets.sql` adds the `datasets` table (applied to production). Migration `0009_match_history.sql` adds `match_history` and `match_imports`; it is additive and applied to the development database only. **Apply it to production before using the Historical Football Data section there** (`node scripts/migrate.mjs` with production credentials).

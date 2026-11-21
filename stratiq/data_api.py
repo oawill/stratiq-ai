@@ -55,20 +55,25 @@ def create_dataset(body: CreateBody, p: Auth, conn=Depends(get_conn)):
         parsed = _parse(body)
     except ds.DataError as e:
         raise HTTPException(422, {"errors": e.errors})
+    return store_dataset(conn, p, body.kind, body.name, body.description, parsed)
+
+
+def store_dataset(conn, p, kind: str, name: str, description: str | None, parsed: ds.Parsed, source: str = "Uploaded dataset") -> dict:
+    """Save a validated dataset in the workspace, with its activity and audit entries. Callers check the role and plan quota first."""
     row = conn.execute(
         """insert into datasets (workspace_id, kind, name, description, row_count, summary, data, sha256, created_by)
            values (%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id, created_at""",
-        (p.workspace_id, body.kind, body.name, body.description or None, parsed.row_count, json.dumps(parsed.summary), json.dumps(parsed.data), parsed.sha256, p.user_id),
+        (p.workspace_id, kind, name, description or None, parsed.row_count, json.dumps(parsed.summary), json.dumps(parsed.data), parsed.sha256, p.user_id),
     ).fetchone()
     conn.execute(
         "insert into activity_history (workspace_id,user_id,kind,summary,ref_type,ref_id) values (%s,%s,'dataset.created',%s,'dataset',%s)",
-        (p.workspace_id, p.user_id, f"Uploaded dataset: {body.name}", str(row["id"])),
+        (p.workspace_id, p.user_id, f"{source}: {name}", str(row["id"])),
     )
     conn.execute(
         "insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'dataset.create',%s)",
-        (p.workspace_id, p.user_id, json.dumps({"dataset_id": str(row["id"]), "kind": body.kind, "rows": parsed.row_count, "sha256": parsed.sha256})),
+        (p.workspace_id, p.user_id, json.dumps({"dataset_id": str(row["id"]), "kind": kind, "rows": parsed.row_count, "sha256": parsed.sha256})),
     )
-    return {"id": row["id"], "created_at": row["created_at"], "kind": body.kind, "name": body.name, "row_count": parsed.row_count,
+    return {"id": row["id"], "created_at": row["created_at"], "kind": kind, "name": name, "row_count": parsed.row_count,
             "summary": parsed.summary, "warnings": parsed.warnings, "sha256": parsed.sha256}
 
 
