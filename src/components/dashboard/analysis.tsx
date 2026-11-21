@@ -32,12 +32,15 @@ export function ScenarioSaveBar({ endpoint, kind, inputs, valid, onSaved }: { en
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [last, setLast] = useState<string | null>(null);
+  const [asVersion, setAsVersion] = useState(true);
   async function save() {
     if (!title.trim()) return setMsg({ ok: false, text: "Give the scenario a title first." });
     setBusy(true); setMsg(null);
     try {
-      await post(endpoint, { kind, title: title.trim(), notes: notes.trim() || null, inputs });
-      setMsg({ ok: true, text: "Saved. Find it under Saved & compare." });
+      const r = await post<{ id: string; version?: number }>(endpoint, { kind, title: title.trim(), notes: notes.trim() || null, inputs, ...(last && asVersion ? { based_on: last } : {}) });
+      setLast(r.id);
+      setMsg({ ok: true, text: `Saved${r.version ? ` as version ${r.version}` : ""}. Find it under Saved & compare, or in SimLab, Saved scenarios.` });
       onSaved();
     } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Could not save" }); } finally { setBusy(false); }
   }
@@ -56,6 +59,7 @@ export function ScenarioSaveBar({ endpoint, kind, inputs, valid, onSaved }: { en
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />} Save
         </button>
       </div>
+      {last && <label className="flex items-center gap-2 text-sm text-muted sm:col-span-5"><input type="checkbox" checked={asVersion} onChange={(e) => setAsVersion(e.target.checked)} /> Save as the next version of the scenario I just saved</label>}
       {msg && <p role={msg.ok ? "status" : "alert"} className={`text-sm sm:col-span-5 ${msg.ok ? "text-success" : "text-red-300"}`}>{msg.text}</p>}
     </div>
   );

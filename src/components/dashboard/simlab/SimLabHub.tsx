@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { Activity, Briefcase, Landmark, LineChart } from "lucide-react";
 import { Badge, Panel } from "../ui";
 import { SimWorkspace } from "../simulations/SimWorkspace";
-import { CompareTab, RunViewer, SavedTab } from "./SavedScenarios";
+import { CompareTab, RunViewer, SavedTab, ScenarioViewer } from "./SavedScenarios";
 import { BusinessSimulator } from "./BusinessSimulator";
 import { SportsSimulator } from "./SportsSimulator";
 
@@ -30,7 +30,7 @@ const CARDS = [
 /** SimLab: one place for scenario simulation across the four domains. Sports has the dedicated simulator; the others link to their working tools. */
 export function SimLabHub() {
   const [tab, setTab] = useState<TabId>("overview");
-  const [opened, setOpened] = useState<string | null>(null);
+  const [opened, setOpened] = useState<{ id: string; source: "run" | "scenario" } | null>(null);
   const [tick, setTick] = useState(0);
   const bump = useCallback(() => setTick((t) => t + 1), []);
   const onKey = (e: React.KeyboardEvent) => {
@@ -57,7 +57,7 @@ export function SimLabHub() {
                 </li>
               ))}
             </ul>
-            <Panel title="Also in SimLab"><p className="text-sm text-muted">The <button type="button" className="text-violet underline" onClick={() => setTab("montecarlo")}>Monte Carlo runs</button> tab runs seeded simulations of any formula you define (same seed, same results), with history and comparison. <button type="button" className="text-violet underline" onClick={() => setTab("saved")}>Saved scenarios</button> lists saved sports and business simulations with their versions, and <button type="button" className="text-violet underline" onClick={() => setTab("compare")}>Compare results</button> puts two saved sports simulations side by side.</p></Panel>
+            <Panel title="Also in SimLab"><p className="text-sm text-muted">The <button type="button" className="text-violet underline" onClick={() => setTab("montecarlo")}>Monte Carlo runs</button> tab runs seeded simulations of any formula you define (same seed, same results), with history and comparison. <button type="button" className="text-violet underline" onClick={() => setTab("saved")}>Saved scenarios</button> lists saved sports and business simulations with their versions, and <button type="button" className="text-violet underline" onClick={() => setTab("compare")}>Compare results</button> compares two saved sports simulations, or two to four political or financial scenarios of the same type.</p></Panel>
           </div>
         )}
         {tab === "sports" && <SportsSimulator onSaved={bump} />}
@@ -65,8 +65,8 @@ export function SimLabHub() {
         {tab === "montecarlo" && <SimWorkspace />}
         {tab === "saved" && (
           <div className="space-y-4">
-            {opened && <div><button type="button" onClick={() => setOpened(null)} className="mb-2 text-xs text-violet underline">Close</button><RunViewer id={opened} /></div>}
-            <SavedTab tick={tick} onOpen={(id) => setOpened(id)} />
+            {opened && <div><button type="button" onClick={() => setOpened(null)} className="mb-2 text-xs text-violet underline">Close</button>{opened.source === "run" ? <RunViewer id={opened.id} /> : <ScenarioViewer id={opened.id} />}</div>}
+            <SavedTab tick={tick} onOpen={(id, source) => setOpened({ id, source })} />
           </div>
         )}
         {tab === "compare" && <CompareTab tick={tick} />}

@@ -914,7 +914,7 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page.getByText(/Baseline difference \(B minus A\)/)).toBeVisible();
     await page.getByRole("tab", { name: "Saved scenarios" }).click();
     await page.getByRole("button", { name: /Delete Arsenal v Chelsea version 2/ }).click();
-    await expect(page.getByText(/^1 version · latest/)).toBeVisible();
+    await expect(page.getByRole("listitem").filter({ hasText: "Arsenal v Chelsea" }).filter({ hasText: /^Arsenal v Chelsea/ }).getByText(/^1 version · latest/).first()).toBeVisible();
   });
 
   await test.step("SimLab business simulator: a hypothetical pricing scenario with revenue, gross profit and sensitivity", async () => {
@@ -937,6 +937,44 @@ test("football intelligence: each data type shows its own requirements, then for
     await page.getByRole("button", { name: "Open" }).first().click();
     await expect(page.getByRole("heading", { name: "Pricing scenario · version 1" })).toBeVisible();
     await page.getByRole("button", { name: /Delete Pricing scenario version 1/ }).click();
+  });
+
+  await test.step("SimLab: political and financial scenarios share the saved list, with versions, provenance, export and comparison", async () => {
+    await page.goto("/dashboard/politics");
+    await page.locator("#save-title-coalition").fill("E2E coalition");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved as version 1" })).toBeVisible();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved as version 2" })).toBeVisible();     // saved as the next version of the first save
+    await page.goto("/dashboard/finance");
+    await page.locator("#save-title-montecarlo").fill("E2E portfolio");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved as version 1" })).toBeVisible();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved as version 2" })).toBeVisible();
+
+    await page.goto("/dashboard/simulations");
+    await page.getByRole("tab", { name: "Saved scenarios" }).click();
+    const saved = page.getByRole("list", { name: "Saved scenarios" });
+    const coalition = saved.getByRole("listitem").filter({ hasText: "E2E coalition" }).first();
+    await expect(coalition.getByText("Politics", { exact: true })).toBeVisible();
+    await expect(coalition.getByText(/^2 versions · latest/)).toBeVisible();
+    await expect(saved.getByRole("listitem").filter({ hasText: "E2E portfolio" }).first().getByText("Markets", { exact: true })).toBeVisible();
+    await page.getByLabel("Show").selectOption("politics");
+    await expect(saved.getByRole("listitem").filter({ hasText: "E2E portfolio" })).toHaveCount(0);
+    await coalition.getByRole("button", { name: "Open" }).first().click();
+    await expect(page.getByRole("heading", { name: "E2E coalition · version 2" })).toBeVisible();
+    await expect(page.getByText(/Not a poll, not a validated election forecast/)).toBeVisible();
+    await expect(page.getByText(/Provenance: politics@1/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "CSV" })).toHaveAttribute("href", /\/app-api\/simlab\/scenarios\/.+\/export\?format=csv/);
+
+    await page.getByRole("tab", { name: "Compare results" }).click();
+    await page.getByLabel("Domain").selectOption("markets");
+    await page.getByLabel(/E2E portfolio.*v1/).check();
+    await page.getByLabel(/E2E portfolio.*v2/).check();
+    await page.getByRole("button", { name: /^Compare 2 selected/ }).click();
+    await expect(page.getByRole("table", { name: /Stored summaries of the compared scenarios/ })).toBeVisible();
+    await expect(page.getByText(/Educational scenario analysis/).first()).toBeVisible();
   });
 
   await test.step("watchlists: watch a club and see its status computed from the imported matches", async () => {

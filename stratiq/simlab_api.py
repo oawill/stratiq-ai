@@ -65,10 +65,13 @@ def _today() -> date:
 
 
 def _limit(conn, p) -> None:
-    n = conn.execute("select count(*) n from simlab_runs where workspace_id=%s and created_by=%s and created_at > now() - interval '1 minute'", (p.workspace_id, p.user_id)).fetchone()["n"]
+    n = conn.execute("""select (select count(*) from simlab_runs where workspace_id=%s and created_by=%s and created_at > now() - interval '1 minute')
+                         + (select count(*) from strategic_scenarios where workspace_id=%s and created_by=%s and created_at > now() - interval '1 minute') n""",
+                     (p.workspace_id, p.user_id, p.workspace_id, p.user_id)).fetchone()["n"]
     if n >= RATE_PER_MINUTE:
         raise HTTPException(429, f"Too many simulations: at most {RATE_PER_MINUTE} per minute. Wait a moment and try again.")
-    d = conn.execute("select count(*) n from simlab_runs where workspace_id=%s and created_at > now() - interval '1 day'", (p.workspace_id,)).fetchone()["n"]
+    d = conn.execute("""select (select count(*) from simlab_runs where workspace_id=%s and created_at > now() - interval '1 day')
+                         + (select count(*) from strategic_scenarios where workspace_id=%s and created_at > now() - interval '1 day') n""", (p.workspace_id, p.workspace_id)).fetchone()["n"]
     if d >= RATE_PER_DAY:
         raise HTTPException(429, f"This workspace has reached its limit of {RATE_PER_DAY} simulations in 24 hours.")
 
@@ -290,3 +293,103 @@ def export(run_id: uuid.UUID, p: Auth, conn=Depends(get_conn), format: Literal["
         body, media = json.dumps({"title": r["title"], "version": r["version"], "inputs": r["inputs"], "outputs": r["outputs"], "provenance": r["provenance"]}, indent=2, default=str), "application/json"
     conn.execute("insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'simlab.export',%s)", (p.workspace_id, p.user_id, json.dumps({"run_id": str(run_id), "format": format})))
     return Response(body, media_type=f"{media}; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{slug}-v{r["version"]}.{format}"'})
+
+
+# ------------------------------------------------------------------ one list across every store
+# Sports and business-pricing runs live in simlab_runs. Political, financial and strategy-game scenarios live in strategic_scenarios so the library, comments, the
+# assistant and exports keep working; SimLab lists, opens, exports and deletes them alongside the runs, and they carry the same version chain and provenance.
+SCENARIO_DOMAINS = {"politics": "politics", "finance": "markets", "business": "business"}
+MODULE_HREF = {"politics": "/dashboard/politics", "markets": "/dashboard/finance", "business": "/dashboard/business", "sports": "/dashboard/sports"}
+NOTICES = {"politics": "Scenario arithmetic on entered assumptions. Not a poll, not a validated election forecast.",
+           "markets": "Educational scenario analysis. Not investment advice, not a forecast, and not connected to any broker.",
+           "business": "A game built from payoffs you entered. An equilibrium is a prediction about stable play, not a recommendation."}
+
+
+@router.get("/saved")
+def saved(p: Auth, conn=Depends(get_conn), domain: Literal["sports", "business", "politics", "markets"] | None = None, limit: int = Query(100, ge=1, le=300)):
+    """Every saved SimLab run and scenario in the workspace, newest first, with its domain, version and where it is stored."""
+    out = []
+    for r in conn.execute(
+        """select r.id, r.domain, r.title, r.scenario_key, r.version, r.model_name, r.model_version, r.created_at, r.outputs, u.name created_by_name
+           from simlab_runs r join users u on u.id=r.created_by where r.workspace_id=%s and (%s::text is null or r.domain=%s) order by r.created_at desc limit %s""",
+            (p.workspace_id, domain, domain, limit)).fetchall():
+        out.append({"source": "run", "id": str(r["id"]), "domain": r["domain"], "kind": r["domain"], "title": r["title"], "scenario_key": str(r["scenario_key"]), "version": r["version"],
+                    "created_at": r["created_at"], "created_by_name": r["created_by_name"], "engine": f"{r['model_name']}@{r['model_version']}", **_headline(r["outputs"])})
+    wanted = [k for k, v in SCENARIO_DOMAINS.items() if domain is None or v == domain]
+    if wanted:
+        for r in conn.execute(
+            """select s.id, s.domain, s.title, s.created_at, s.definition, u.name created_by_name from strategic_scenarios s join users u on u.id=s.created_by
+               where s.workspace_id=%s and s.domain = any(%s) order by s.created_at desc limit %s""", (p.workspace_id, wanted, limit)).fetchall():
+            d = r["definition"] or {}
+            prov = d.get("provenance") or {}
+            out.append({"source": "scenario", "id": str(r["id"]), "domain": SCENARIO_DOMAINS[r["domain"]], "kind": d.get("kind") or "payoff game", "title": r["title"],
+                        "scenario_key": d.get("scenario_key") or str(r["id"]), "version": int(d.get("version", 1)), "created_at": r["created_at"], "created_by_name": r["created_by_name"],
+                        "engine": f"{prov['engine']}@{prov['engine_version']}" if prov.get("engine") else None, "scenarios": None})
+    out.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"runs": out[:limit]}
+
+
+def _scenario(conn, p, sid: uuid.UUID):
+    row = conn.execute("select s.*, u.name created_by_name from strategic_scenarios s join users u on u.id=s.created_by where s.id=%s and s.workspace_id=%s and s.domain = any(%s)",
+                       (sid, p.workspace_id, list(SCENARIO_DOMAINS))).fetchone()
+    if not row:
+        raise HTTPException(404, "Not found")
+    return row
+
+
+@router.get("/scenarios/{scenario_id}")
+def get_scenario(scenario_id: uuid.UUID, p: Auth, conn=Depends(get_conn)):
+    r = _scenario(conn, p, scenario_id)
+    d = r["definition"] or {}
+    dom = SCENARIO_DOMAINS[r["domain"]]
+    return {"source": "scenario", "id": str(r["id"]), "domain": dom, "kind": d.get("kind") or "payoff game", "title": r["title"], "version": int(d.get("version", 1)), "scenario_key": d.get("scenario_key") or str(r["id"]),
+            "created_at": r["created_at"], "created_by_name": r["created_by_name"], "notes": d.get("notes"), "summary": d.get("summary"), "provenance": d.get("provenance"),
+            "notice": NOTICES[dom], "module_href": MODULE_HREF[dom], "players": d.get("players"), "row_strategies": d.get("row_strategies"), "col_strategies": d.get("col_strategies")}
+
+
+@router.delete("/scenarios/{scenario_id}", status_code=204)
+def delete_scenario(scenario_id: uuid.UUID, p: Auth, conn=Depends(get_conn)):
+    require_write(p)
+    r = _scenario(conn, p, scenario_id)
+    if str(r["created_by"]) != str(p.user_id) and p.role not in ADMIN_ROLES:
+        raise HTTPException(403, "Only the person who saved this scenario, or an admin, can delete it")
+    conn.execute("delete from strategic_scenarios where id=%s and workspace_id=%s", (scenario_id, p.workspace_id))
+    conn.execute("insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'simlab.delete_scenario',%s)", (p.workspace_id, p.user_id, json.dumps({"scenario_id": str(scenario_id), "title": r["title"], "domain": r["domain"]})))
+
+
+def _flatten(prefix: str, v, out: list) -> None:
+    if isinstance(v, dict):
+        for k, x in v.items():
+            _flatten(f"{prefix}.{k}" if prefix else str(k), x, out)
+    elif isinstance(v, list):
+        for i, x in enumerate(v):
+            _flatten(f"{prefix}[{i}]", x, out)
+    else:
+        out.append((prefix, v))
+
+
+@router.get("/scenarios/{scenario_id}/export")
+def export_scenario(scenario_id: uuid.UUID, p: Auth, conn=Depends(get_conn), format: Literal["csv", "json"] = "csv"):
+    plans.check_exports(conn, p.workspace_id)
+    r = _scenario(conn, p, scenario_id)
+    d = r["definition"] or {}
+    dom = SCENARIO_DOMAINS[r["domain"]]
+    slug = re.sub(r"[^a-z0-9]+", "-", r["title"].lower()).strip("-")[:50] or "scenario"
+    version = int(d.get("version", 1))
+    if format == "json":
+        body, media = json.dumps({"title": r["title"], "domain": dom, "kind": d.get("kind"), "version": version, "scenario_key": d.get("scenario_key"), "notes": d.get("notes"), "inputs": d.get("inputs"),
+                                  "summary": d.get("summary"), "provenance": d.get("provenance"), "notice": NOTICES[dom]}, indent=2, default=str), "application/json"
+    else:
+        out = io.StringIO()
+        w = csv.writer(out, lineterminator="\n")
+        w.writerow(["# VELQORIN SimLab scenario", r["title"], f"version {version}", f"saved {r['created_at']}"])
+        w.writerow(["# " + NOTICES[dom]])
+        w.writerow(["# provenance", json.dumps(d.get("provenance") or {"note": "saved before provenance was recorded"}, default=str)])
+        w.writerow(["field", "value"])
+        rows: list = []
+        _flatten("", d.get("summary") or {}, rows)
+        for k, v in rows:
+            w.writerow([k, v])
+        body, media = out.getvalue(), "text/csv"
+    conn.execute("insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'simlab.export',%s)", (p.workspace_id, p.user_id, json.dumps({"scenario_id": str(scenario_id), "format": format})))
+    return Response(body, media_type=f"{media}; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{slug}-v{version}.{format}"'})

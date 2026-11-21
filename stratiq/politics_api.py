@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
 from . import politics as pol
 from .db import get_conn
+from . import plans
+from . import scenario_meta
+from .simlab_api import _limit
 from .security import ADMIN_ROLES, Auth, require_write
 
 router = APIRouter(prefix="/api/v1/politics", tags=["politics"])
@@ -177,6 +180,7 @@ class ScenarioBody(BaseModel):
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     notes: Annotated[str, StringConstraints(max_length=2000)] | None = None
     inputs: dict[str, Any]
+    based_on: uuid.UUID | None = None      # save as the next version of this scenario
 
 
 class CompareBody(BaseModel):
@@ -222,12 +226,16 @@ def summarise(kind: str, a: dict) -> dict:
 @router.post("/scenarios", status_code=201)
 def save_scenario(body: ScenarioBody, p: Auth, conn=Depends(get_conn)):
     require_write(p)
+    plans.check_quota(conn, p.workspace_id, "scenarios")
+    _limit(conn, p)
+    lin = scenario_meta.lineage(conn, p, "politics", body.kind, body.based_on)
     inputs = dict(body.inputs)
     if body.kind == "policy" and inputs.get("seed") is None:
         inputs["seed"] = secrets.randbelow(2**31)  # fixed so the saved scenario reproduces exactly
     model = _parse(body.kind, inputs)
     analysis = analyse(body.kind, model)
-    definition = {"kind": body.kind, "inputs": model.model_dump(), "notes": body.notes, "summary": summarise(body.kind, analysis)}
+    definition = {"kind": body.kind, "inputs": model.model_dump(), "notes": body.notes, "summary": summarise(body.kind, analysis), **lin,
+                  "provenance": scenario_meta.provenance("politics", "1", inputs.get("seed") if body.kind == "policy" else None, "entered by the user: scenario arithmetic, not official results or polling")}
     row = conn.execute(
         "insert into strategic_scenarios (workspace_id, created_by, title, domain, definition) values (%s,%s,%s,'politics',%s) returning id, created_at",
         (p.workspace_id, p.user_id, body.title, json.dumps(definition)),
@@ -240,13 +248,13 @@ def save_scenario(body: ScenarioBody, p: Auth, conn=Depends(get_conn)):
         "insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'political_scenario.create',%s)",
         (p.workspace_id, p.user_id, json.dumps({"scenario_id": str(row["id"]), "kind": body.kind})),
     )
-    return {"id": row["id"], "created_at": row["created_at"], "kind": body.kind, "analysis": analysis}
+    return {"id": row["id"], "created_at": row["created_at"], "kind": body.kind, "analysis": analysis, "version": lin["version"], "scenario_key": lin["scenario_key"], "parent_id": lin["parent_id"]}
 
 
 @router.get("/scenarios")
 def list_scenarios(p: Auth, conn=Depends(get_conn), kind: Literal["coalition", "turnout", "policy"] | None = None, limit: int = Query(50, ge=1, le=200)):
     rows = conn.execute(
-        """select s.id, s.title, s.created_at, u.name created_by_name, s.definition->>'kind' kind
+        """select s.id, s.title, s.created_at, u.name created_by_name, s.definition->>'kind' kind, coalesce((s.definition->>'version')::int, 1) version, s.definition->>'scenario_key' scenario_key
            from strategic_scenarios s join users u on u.id = s.created_by
            where s.workspace_id=%s and s.domain='politics' and (%s::text is null or s.definition->>'kind' = %s)
            order by s.created_at desc limit %s""",

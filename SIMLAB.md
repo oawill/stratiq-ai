@@ -14,7 +14,7 @@ The one rule every scenario follows: what is **calibrated from data** is shown a
 | Markets | Markets (`/dashboard/finance`) | Portfolio Monte Carlo, stress tests, historical risk from your returns | Only data you import | Shocks and forward-looking inputs; educational only |
 | Any formula | SimLab, Monte Carlo runs | Seeded Monte Carlo of variables and outputs you define, with history and comparison | None | All inputs |
 
-The Business, Politics and Markets tools existed before this phase and are linked from the SimLab overview rather than rebuilt. Only Sports uses the new saved-scenario store below.
+The Politics and Markets tools and the Strategy payoff-matrix tool existed before SimLab and are linked from the overview rather than rebuilt. Their scenarios are stored in `strategic_scenarios` (so the library, comments, the assistant and exports keep working) and are brought into SimLab's saved list, comparison and export; see "One saved list" below.
 
 ## The sports scenario model (`stratiq/sports_sim.py`, version 1.0.0)
 
@@ -42,6 +42,16 @@ Home win, draw and away win are sums over that grid, so they add to 100%; displa
 - **Export.** CSV, a printable page (use the browser's Print, then Save as PDF: there is no server-side PDF generator) and JSON. Each carries the hypothetical label, the model and the provenance, and each export is audit-logged.
 - **Compare.** One run already compares a baseline with up to three scenarios; the Compare tab puts two saved runs side by side (for example two versions, or two fixtures).
 
+## One saved list across every store (Phase 5)
+
+Sports runs and business-pricing runs are stored in `simlab_runs`. Political and financial scenarios (and Strategy payoff games) stay in `strategic_scenarios`, because the workspace library, comments, the assistant's explanations and the library exports all read that table; moving them would have broken those. Instead SimLab reads both:
+
+- **Saved scenarios tab** (`GET /api/v1/simlab/saved`): every domain in one newest-first list, filterable by domain, grouped by scenario with its version chain, showing where it is stored and its engine and version.
+- **Version lineage and provenance on political and financial scenarios** (`stratiq/scenario_meta.py`): a new scenario gets `scenario_key`, `version`, `parent_id` and a `provenance` block (engine, engine version, random seed, time, where the inputs came from) inside its definition. The shared save bar offers "Save as the next version of the scenario I just saved", so the chain is built from the Politics and Markets pages. Scenarios saved before this existed list as version 1 with no provenance, can start a chain, and are labelled "saved before provenance was recorded".
+- **Open, export, delete.** `GET /simlab/scenarios/{id}` returns the stored summary, notice, provenance and a link back to the workspace; `/simlab/scenarios/{id}/export` gives CSV or JSON (plan rule as for other exports, audit-logged); deletion follows the existing rule (author or admin, audit-logged). The library's own report export still works for these scenarios.
+- **Compare.** Two to four political or financial scenarios of the same type can be compared from SimLab, using each module's existing comparison; the result is a side-by-side table of the stored summaries.
+- **Limits.** Saving a political or financial scenario now counts toward the plan's saved-scenario quota and the same per-person (20 per minute) and per-workspace (300 per day) rate limits as SimLab runs, counted across both tables.
+
 ## Game theory (`stratiq/gametheory.py`)
 
 The exact (fraction) solver already did pure Nash, best responses, dominance, iterated elimination, welfare and sensitivity. Phase 4 adds `mixed_equilibria`: **every pure and mixed Nash equilibrium of games up to 6 x 6, by support enumeration in exact arithmetic**, with a plain-language explanation per equilibrium and a statement of the assumptions (two players, known payoffs, simultaneous one-shot choice, each maximising their own payoff; an equilibrium is a prediction of stable play, not a recommendation). For a game with tied payoffs there can be a continuum of equilibria; only isolated ones are listed, and the result says so. The earlier 2 x 2 `mixed_2x2` field is unchanged, and a test checks the general solver agrees with it. It is separate from the probabilistic match model.
@@ -52,7 +62,8 @@ The exact (fraction) solver already did pure Nash, best responses, dominance, it
 
 ## Not done, and next steps
 
-- Business, Politics and Markets are not on the shared saved-scenario store: they keep their own saved scenarios and runs. Moving them onto `simlab_runs` (and exporting them from there) is the next step.
-- The Business tool's pricing scenarios use the existing demand model; a separate market-size, adoption and competitor-reaction calculator with its own formula tests was not added.
+- Political and financial scenarios are listed, versioned, compared and exported through SimLab but still stored in `strategic_scenarios`; they are not rows of `simlab_runs`. Merging the two tables would mean updating the library, comments and assistant code that read the older one.
+- Strategy payoff games appear in the saved list but have no stored summary, provenance or version chain of their own beyond what they already had; open them in Strategy.
+- The SimLab export of a political or financial scenario is its stored summary, not a full analysis report; the library's report export remains the fuller document.
 - There is no server-side PDF; the printable page covers it.
 - Slider effects have never been backtested. A useful follow-up is a calibration study on real data: for historical matches where a key player was absent, does the assumed attack loss move the forecast in the right direction and by roughly the right amount?
