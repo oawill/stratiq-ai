@@ -77,6 +77,125 @@ test("anonymous visitors cannot reach the application or its API", async ({ page
   expect([400, 503]).toContain((await request.post("/api/stripe/webhook", { data: "{}" })).status());
 });
 
+test("cinematic landing page: navigation, five sections, interactive demonstrations and conversion sections", async ({ page, browser }) => {
+  test.setTimeout(240_000);
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Primary" });
+
+  await test.step("navigation shows the five sections and tracks the active one", async () => {
+    for (const label of ["Home", "Sports", "Strategy", "Politics", "Markets", "Pricing"]) await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Home", exact: true })).toHaveAttribute("aria-current", "location");
+    await expect(page.getByRole("link", { name: "Get Early Access" }).first()).toHaveAttribute("href", "/early-access");
+    await nav.getByRole("link", { name: "Strategy", exact: true }).click();
+    await expect(page).toHaveURL(/#strategy$/);
+    await expect(page.getByRole("heading", { level: 2, name: /Think Several Moves Ahead/ })).toBeInViewport();
+    await expect(nav.getByRole("link", { name: "Strategy", exact: true })).toHaveAttribute("aria-current", "location");
+  });
+
+  await test.step("hero modules scroll to their sections", async () => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Political Intelligence", exact: true }).click();
+    await expect(page).toHaveURL(/#politics$/);
+    await expect(page.getByRole("heading", { level: 2, name: /Understand the Political Landscape/ })).toBeInViewport();
+  });
+
+  await test.step("sports: probabilities sum to one and respond to the scenario", async () => {
+    const sports = page.locator("#sports");
+    await sports.scrollIntoViewIfNeeded();
+    await expect(sports.getByText("Fictional teams · simulated demonstration data · not a real prediction")).toBeVisible();
+    await expect(sports.getByText("Demonstration fixtures")).toBeVisible();
+    const probs = () => sports.evaluate((el) => [...el.querySelectorAll('[role="img"][aria-label$=" percent"]')].map((e) => parseFloat(e.getAttribute("aria-label")!.match(/([\d.]+) percent$/)![1])));
+    const before = await probs();
+    expect(before).toHaveLength(3);
+    expect(before.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
+    await sports.getByLabel("Home key attacker unavailable").check();
+    await expect.poll(async () => (await probs())[0]).toBeLessThan(before[0]);
+    expect((await probs()).reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
+    await sports.getByRole("button", { name: "Harbour City v Ironvale Athletic" }).click();
+    await expect(sports.getByRole("combobox", { name: "Home team" })).toHaveValue("harbour");
+    await expect(sports.getByText("Illustrative zones generated from the demonstration attack rating. Not player-tracking data.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Try Sports Intelligence" })).toHaveAttribute("href", "/dashboard/sports");
+  });
+
+  await test.step("strategy: the scenario changes the matrix and the equilibrium analysis", async () => {
+    const strategy = page.locator("#strategy");
+    await strategy.scrollIntoViewIfNeeded();
+    await expect(strategy.getByRole("status")).toContainText("our best reply is");
+    await expect(strategy.getByText("NE", { exact: true }).first()).toBeVisible();
+    await strategy.getByLabel("Company expands market share").check();
+    await expect(strategy.getByRole("status")).toContainText(/Nash equilibrium|no pure-strategy/);
+    await expect(strategy.getByText(/Both firms choose prices simultaneously/)).toBeVisible();
+    await expect(strategy.getByRole("table").first().locator("tbody td")).toHaveCount(9);
+    await expect(page.getByRole("link", { name: "Explore Strategy Simulator" })).toHaveAttribute("href", "/dashboard/business");
+  });
+
+  await test.step("politics: hypothetical scenarios are labelled and kept apart from the forecast", async () => {
+    const politics = page.locator("#politics");
+    await politics.scrollIntoViewIfNeeded();
+    await expect(politics.getByText("Fictional country · simulated data · nonpartisan illustration")).toBeVisible();
+    await expect(politics.getByText("Fictional previous election").first()).toBeVisible();
+    await expect(politics.getByText("Your hypothetical scenario")).toHaveCount(0);
+    const region = politics.getByRole("button", { name: /^Central Plains/ });
+    await region.focus();
+    await region.press("Enter");                      // the map is operable from the keyboard
+    await expect(politics.getByLabel("Regional swing in")).toHaveValue("central");
+    await politics.getByLabel(/Vote moving between Party A and Party B/).fill("6");
+    await expect(politics.getByText("Your hypothetical scenario")).toBeVisible();
+    await expect(politics.getByText("Hypothetical scenario").first()).toBeVisible();
+    await politics.getByLabel("Party B", { exact: true }).check();
+    await expect(politics.getByText(/Party A \+ Party C \+ Party B would hold/)).toBeVisible();
+    await expect(politics.getByText(/Nothing here predicts or favours any real party or election/)).toBeVisible();
+  });
+
+  await test.step("markets: the scenario drives the risk analysis and nothing is promised", async () => {
+    const markets = page.locator("#markets");
+    await markets.scrollIntoViewIfNeeded();
+    await expect(markets.getByText("Simulated prices and assumptions · not market data · not investment advice")).toBeVisible();
+    const loss = async () => parseInt(((await markets.locator("dt", { hasText: "Chance of loss" }).locator("xpath=following-sibling::dd").textContent()) ?? "0").replace("%", ""));
+    await markets.getByLabel("Market scenario").selectOption("bull");
+    const bull = await loss();
+    await markets.getByLabel("Market scenario").selectOption("bear");
+    await expect.poll(loss).toBeGreaterThan(bull);
+    expect(await loss()).toBeGreaterThan(50);
+    await markets.getByLabel("Risk tolerance").selectOption("aggressive");
+    await markets.getByText("12 months").click();
+    await expect(markets.getByRole("status")).toContainText("These are scenarios, not predictions or guaranteed returns.");
+    await expect(markets.getByRole("row", { name: /Equities fall 20%/ })).toContainText("−18.0%");
+    await expect(markets.getByText(/not market data and not a historical record/)).toBeVisible();
+  });
+
+  await test.step("trust, pricing and early-access sections are intact", async () => {
+    await expect(page.getByRole("heading", { name: /Data → Analysis → Simulation → Decision intelligence/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "How VELQORIN Works" })).toBeVisible();
+    await expect(page.locator("#performance")).toBeVisible();
+    await expect(page.locator("#pricing").getByRole("link", { name: "Join early access" }).first()).toHaveAttribute("href", /early-access/);
+    await expect(page.locator("#early-access")).toBeVisible();
+    await expect(page.getByRole("contentinfo")).toContainText("not financial, legal, or betting");
+  });
+
+  await test.step("phones get a menu, stacked modules and no sideways scrolling", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true });
+    const m = await ctx.newPage();
+    await m.goto("/");
+    await expect(m.getByRole("link", { name: "Sports Intelligence", exact: true })).toBeVisible();
+    expect(await m.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    await m.getByRole("button", { name: "Open menu" }).click();
+    await m.getByRole("navigation", { name: "Mobile" }).getByRole("link", { name: "Markets" }).click();
+    await expect(m).toHaveURL(/#markets$/);
+    await expect(m.locator("#landing-menu")).toHaveCount(0);
+    await ctx.close();
+  });
+
+  await test.step("reduced motion shows the transition bands still", async () => {
+    const ctx = await browser.newContext({ reducedMotion: "reduce" });
+    const r = await ctx.newPage();
+    await r.goto("/");
+    await expect(r.locator("[data-transition]").first()).toBeAttached();
+    await expect.poll(() => r.locator("[data-transition]").first().locator("svg").evaluateAll((els) => els.map((e) => (e as SVGElement).style.opacity))).toEqual(["0.5", "0.5"]);
+    await ctx.close();
+  });
+});
+
 test("landing page leads to a working account and every module", async ({ page }) => {
   await test.step("landing page", async () => {
     await page.goto("/");
@@ -616,7 +735,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
-  for (const path of ["/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data"]) {
+  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const { overflow, culprits } = await page.evaluate(() => {

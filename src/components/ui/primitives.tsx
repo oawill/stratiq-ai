@@ -9,7 +9,7 @@ const base =
   "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 whitespace-nowrap";
 const variants = {
   primary:
-    "bg-primary text-white shadow-[0_8px_30px_-8px_rgba(128,85,246,0.8)] hover:bg-[#9168ff] hover:-translate-y-0.5",
+    "bg-primary text-white shadow-[0_8px_30px_-8px_rgba(128,85,246,0.8)] hover:brightness-110 hover:-translate-y-0.5",
   secondary: "border border-line bg-white/5 text-ink hover:bg-white/10 hover:border-violet/50",
   ghost: "text-muted hover:text-ink",
 } as const;

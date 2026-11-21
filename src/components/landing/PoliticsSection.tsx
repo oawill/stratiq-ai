@@ -27,7 +27,7 @@ export function PoliticsSection() {
     <SectionShell id="politics" index="04" eyebrow="Politics" accent="#60A5FA" title={<>Understand the Political <span className="text-gradient">Landscape</span></>}
       sub="Election Forecasting & Scenario Intelligence: explore turnout, regional swings and coalitions, with forecasts, hypotheticals and historical facts kept apart. Transparent and nonpartisan." background={<Contours />}>
       <div className="mb-5"><DemoBadge>Fictional country · simulated data · nonpartisan illustration</DemoBadge></div>
-      <LazyMount className="min-h-[1500px] lg:min-h-[900px]"><PoliticsPanel /></LazyMount>
+      <LazyMount className="min-h-[1960px] md:min-h-[1835px] lg:min-h-[870px]"><PoliticsPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/politics" className="py-3.5">Explore Political Intelligence</ButtonLink>
         <ButtonLink href="/politics" variant="secondary" className="py-3.5">How VELQORIN Politics works</ButtonLink>

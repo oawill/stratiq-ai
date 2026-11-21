@@ -127,7 +127,7 @@ body {
   --bg: #030b1c;
   --bg-2: #07152b;
   --card: #0b1d3a;
-  --primary: #8b5cf6;
+  --primary: #7c3aed; /* buttons: white text on this is 5.7:1; the brand violet #8b5cf6 is used for accents */
   --violet: #a78bfa;
   --cyan: #00e5ff;
   --azure: #2563eb;

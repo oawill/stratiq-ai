@@ -26,7 +26,7 @@ export function MarketsSection() {
     <SectionShell id="markets" index="05" eyebrow="Markets" accent="#34D399" title={<>Navigate <span className="text-gradient">Uncertainty</span></>}
       sub="Market Forecasting & Risk Intelligence: see the range of outcomes under explicit assumptions, not a single number promised as a return." background={<Terminal />}>
       <div className="mb-5"><DemoBadge>Simulated prices and assumptions · not market data · not investment advice</DemoBadge></div>
-      <LazyMount className="min-h-[1500px] lg:min-h-[880px]"><MarketsPanel /></LazyMount>
+      <LazyMount className="min-h-[1880px] md:min-h-[1180px] lg:min-h-[755px]"><MarketsPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/finance" className="py-3.5">Explore Market Intelligence</ButtonLink>
         <ButtonLink href="/finance" variant="secondary" className="py-3.5">How VELQORIN Markets works</ButtonLink>

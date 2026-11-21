@@ -40,7 +40,7 @@ export function DomainPage({ slug }: { slug: Domain["slug"] }) {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <ButtonLink href="/early-access">Get Early Access</ButtonLink>
             {(slug === "sports" || slug === "business") && (
-              <ButtonLink href="/#demo" variant="secondary">Try the interactive demo</ButtonLink>
+              <ButtonLink href="/#sports" variant="secondary">Try the interactive demo</ButtonLink>
             )}
           </div>
         </Container>

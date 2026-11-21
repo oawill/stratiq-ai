@@ -93,7 +93,7 @@ export const DOMAINS: Domain[] = [
 ];
 
 export const NAV = [
-  { label: "Product", href: "/#product" },
+  { label: "Product", href: "/#home" },
   { label: "Intelligence", href: "/#intelligence", dropdown: true },
   { label: "How It Works", href: "/how-it-works" },
   { label: "Performance", href: "/#performance" },

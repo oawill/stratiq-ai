@@ -33,7 +33,7 @@ export function SportsSection() {
     <SectionShell id="sports" index="02" eyebrow="Sports" accent="#00E5FF" title={<>Predict Beyond the <span className="text-gradient">Score</span></>}
       sub="Match probabilities, expected goals, form and team strength, with the uncertainty shown rather than hidden." background={<Stadium />}>
       <div className="mb-5"><DemoBadge>Fictional teams · simulated demonstration data · not a real prediction</DemoBadge></div>
-      <LazyMount className="min-h-[900px] lg:min-h-[640px]"><SportsPanel /></LazyMount>
+      <LazyMount className="min-h-[2180px] md:min-h-[1420px] lg:min-h-[925px]"><SportsPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/sports" className="py-3.5">Try Sports Intelligence</ButtonLink>
         <ButtonLink href="/sports" variant="secondary" className="py-3.5">How VELQORIN Sports works</ButtonLink>

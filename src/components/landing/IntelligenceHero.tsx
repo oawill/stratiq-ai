@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import { Activity, Briefcase, ChevronDown, Landmark, LineChart, type LucideIcon } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { ButtonLink, Container } from "../ui/primitives";
@@ -34,7 +35,7 @@ const MODULES: Module[] = [
 /** The first section: headline, calls to action, and the intelligence globe with four modules that scroll to their sections. */
 export function IntelligenceHero() {
   const [hot, setHot] = useState<number | null>(null);
-  const reduce = useReducedMotion();
+  const reduce = usePrefersReducedMotion();
   const { scrollY } = useScroll();
   const drift = useTransform(scrollY, [0, 900], [0, reduce ? 0 : 110]);
   const fade = useTransform(scrollY, [0, 700], [1, reduce ? 1 : 0.35]);
@@ -78,27 +79,24 @@ export function IntelligenceHero() {
           </svg>
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:mt-0 lg:contents">
             {MODULES.map((m, i) => (
-              <a
+              <div
                 key={m.id}
-                href={m.href}
-                aria-label={`${m.title}: jump to the ${m.id} section`}
                 onMouseEnter={() => setHot(i)}
                 onMouseLeave={() => setHot(null)}
-                onFocus={() => setHot(i)}
-                onBlur={() => setHot(null)}
-                className={`glass group rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 lg:absolute lg:w-[44%] ${m.pos}`}
+                className={`glass group relative rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ion lg:absolute lg:w-[44%] ${m.pos}`}
                 style={{ boxShadow: hot === i ? `0 0 0 1px ${m.accent}66, 0 16px 44px -16px ${m.accent}88` : undefined }}
               >
                 <span className="flex items-center gap-2.5 text-sm font-bold">
                   <m.icon className="h-5 w-5" style={{ color: m.accent }} aria-hidden="true" />
-                  {m.title}
+                  {/* the whole card is clickable through this link's stretched ::after */}
+                  <a href={m.href} onFocus={() => setHot(i)} onBlur={() => setHot(null)} className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none">{m.title}</a>
                 </span>
                 <ul className="mt-2 space-y-1 text-xs text-muted">
                   {m.points.map((p) => (
                     <li key={p} className="flex items-center gap-2"><span className="h-1 w-1 rounded-full" style={{ background: m.accent }} aria-hidden="true" />{p}</li>
                   ))}
                 </ul>
-              </a>
+              </div>
             ))}
           </div>
         </div>
