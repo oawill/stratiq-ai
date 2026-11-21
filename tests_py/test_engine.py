@@ -132,3 +132,57 @@ def test_backtest_runs_and_reports_honest_numbers():
     for k in ("brier", "log_loss", "baseline_brier", "baseline_log_loss"):
         assert math.isfinite(res[k]) and res[k] >= 0
     assert res["brier"] <= 2.0
+
+
+# ------------------------------------------------------------------ evaluate(): backtest for uploaded data
+def _poisson(rnd, lam):
+    limit, k, p = math.exp(-lam), 0, 1.0
+    while True:
+        p *= rnd.random()
+        if p <= limit:
+            return k
+        k += 1
+
+
+def _league(strengths, rounds=14, seed=5):
+    """A double round robin repeated `rounds` times, goals drawn from the same Poisson model the engine assumes."""
+    rnd = random.Random(seed)
+    names = list(strengths)
+    day = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    out = []
+    for _ in range(rounds):
+        for h in names:
+            for a in names:
+                if h == a:
+                    continue
+                out.append(HistMatch(h, a, _poisson(rnd, 1.35 * strengths[h] / strengths[a] ** 0.5 * 1.1), _poisson(rnd, 1.1 * strengths[a] / strengths[h] ** 0.5), day))
+                day += timedelta(hours=7)
+    return names, out
+
+
+def test_evaluate_finds_real_signal_and_reports_every_piece():
+    names, hist = _league({"A": 2.2, "B": 1.6, "C": 1.0, "D": 0.6, "E": 0.4, "F": 1.2})
+    res = backtest.evaluate(hist, names, "t", min_train=60, max_eval=150)
+    assert res["sample_size"] == 150 and res["matches"] == len(hist)
+    assert res["log_loss"] < res["baseline_log_loss"] and res["brier"] < res["baseline_brier"]
+    assert res["log_loss_gain"] > 0 and res["gain_is_clear"] is True
+    assert res["accuracy"] >= res["baseline_accuracy"]
+    assert sum(r["count"] for r in res["reliability"]) == 3 * res["sample_size"]
+    for r in res["reliability"]:
+        assert 0 <= r["observed"] <= 1 and r["low"] <= r["mean_predicted"] <= r["high"] + 1e-9
+    assert res["first_scored"] <= res["last_scored"]
+
+
+def test_evaluate_does_not_see_an_effect_in_pure_noise():
+    names, hist = _league({n: 1.0 for n in "ABCDEF"}, rounds=10, seed=11)
+    res = backtest.evaluate(hist, names, "t", min_train=60, max_eval=150)
+    assert res["gain_is_clear"] is False          # equal teams: no real skill to find
+    assert res["log_loss_gain"] < 0.05
+
+
+def test_evaluate_needs_enough_history_and_is_deterministic():
+    names, hist = _league({"A": 1.5, "B": 1.0, "C": 0.7, "D": 1.2}, rounds=3)
+    assert backtest.evaluate(hist, names, "t", min_train=len(hist))["sample_size"] == 0
+    a = backtest.evaluate(hist, names, "t", min_train=20, max_eval=20)
+    assert a == backtest.evaluate(hist, names, "t", min_train=20, max_eval=20)
+    assert a["sample_size"] == len(hist) - 20 == 16   # min_train wins over max_eval

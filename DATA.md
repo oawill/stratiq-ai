@@ -28,6 +28,18 @@ The stored copy is the **validated, normalized content** (not the raw file) with
 
 "Auto" picks lognormal for strictly positive, right-skewed data (skewness above 0.5) and normal otherwise; triangular uses the sample minimum, median and maximum. Parameters are matched to the sample's mean and standard deviation. The fit describes the past sample, not the future, and the interface says so; it is not a goodness-of-fit test. The fitted values appear in the variable's fields where they can be edited before running.
 
+## Backtesting the Sports model (Phase 7)
+
+Sports, "Your data", **Test on my data** (`POST /api/v1/data/datasets/{id}/backtest`) replays the most recent matches of an upload (up to 400, each with more than 100 earlier matches available, so a file needs at least 101 matches). Every match is predicted from **strictly earlier matches only**, then compared with the real result. Nothing is saved, and the same file always gives the same numbers.
+
+It reports:
+- **Log loss and Brier score**, for the model and for a baseline that only knows the earlier home, draw and away rates (Laplace-smoothed). Lower is better. The baseline is the bar the model has to clear to be adding anything.
+- **Right result called**: how often the most likely outcome happened, for the model and the baseline.
+- **A paired log-loss gain with one standard error.** The page says "clearly better" only when the gain is more than two standard errors above zero; a smaller positive gap is shown as unproven, and a negative one as "adds nothing". Hundreds of matches can only reveal large differences, and the page says that.
+- **A reliability table**: for each probability band, the average chance the model gave and how often it happened.
+
+Limits: it tests the model on that file, not on other leagues or future seasons; there is no tuning, so numbers are not inflated by fitting the test; it does not compare against betting markets, and it is not betting or financial advice. For reference, the existing seeded development data is simulated from the model's own assumptions, so its backtest only checks the code, while on one uploaded real Premier League season (380 matches, 280 scored) the model beat the baseline on log loss (1.064 against 1.102) and called 45% of results against 40%, but by a gain of 0.039 ± 0.023, under two standard errors, so it is unproven, and it was overconfident in the 60-80% band (said about 67%, happened 49%). One season cannot settle it.
+
 ## Plans and permissions
 
 - Members and above can upload; viewers can read and use datasets but not add them; the uploader, admins and the owner can delete.
@@ -36,7 +48,7 @@ The stored copy is the **validated, normalized content** (not the raw file) with
 
 ## Limits worth knowing
 
-- Sports ratings use only past scores (the existing Poisson model). Its accuracy on a user's league is **not measured**, and the page says so; backtesting on uploaded data is not built.
+- Sports ratings use only past scores (the existing Poisson model). Its accuracy is measured per upload by the backtest below, never assumed; a good result on one file says nothing about other leagues or future seasons.
 - Market analysis is on past returns of what was uploaded. It says nothing about the future and is not investment advice.
 - Data is stored as JSON in Postgres, which is fine at this size but not meant for large time series.
 - There is no live data feed and no scheduled refresh; re-upload to update.

@@ -296,7 +296,7 @@ test("bring your own data: upload, validate, and use it in Sports, SimLab, Marke
   // Small, clearly synthetic files generated here; no real data is involved.
   const teams = ["Ash", "Birch", "Cedar", "Dune", "Elm", "Fir"];
   const matches = ["date,home_team,away_team,home_goals,away_goals"];
-  for (let round = 0; round < 8; round++) {
+  for (let round = 0; round < 24; round++) {   // enough matches (about 120) for the backtest, which needs more than 100
     teams.forEach((h, i) => {
       const a = teams[(i + 1 + round) % teams.length];
       if (a !== h) matches.push(`2024-01-${String(round + 1).padStart(2, "0")},${h},${a},${(i + round) % 4},${(i * 2 + round) % 3}`);
@@ -352,6 +352,12 @@ test("bring your own data: upload, validate, and use it in Sports, SimLab, Marke
     await expect(page.getByText(/Ratings fitted on \d+ matches from “E2E league”/)).toBeVisible();
     await page.getByRole("button", { name: "Save forecast" }).click();
     await expect(page.getByText(/^Saved at/)).toBeVisible();
+    // The model is replayed over past matches and scored against a baseline, with the caveats shown.
+    await page.getByRole("button", { name: "Test on my data" }).click();
+    await expect(page.getByRole("rowheader", { name: "Log loss" })).toBeVisible();
+    await expect(page.getByRole("rowheader", { name: "Brier score" })).toBeVisible();
+    await expect(page.getByText(/Scored \d+ matches from/)).toBeVisible();
+    await expect(page.getByText(/not a promise about any league/)).toBeVisible();
     await page.goto("/dashboard/history");
     await expect(page.getByText("Ash vs Birch").first()).toBeVisible();
   });

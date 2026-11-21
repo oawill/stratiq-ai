@@ -280,6 +280,29 @@ def test_sports_forecast_from_uploaded_results(client, conn):
     assert post(client, h, f"datasets/{did}/forecast", {"home": "Ash", "away": "Birch"}).json()["outputs"] == o
 
 
+def test_backtest_on_uploaded_results(client, conn):
+    uid, wid = make_user(conn)
+    h = hdr(uid, wid)
+    big = upload(client, h, name="Long league", csv=sports_csv(n_rounds=30)).json()["id"]
+    r = post(client, h, f"datasets/{big}/backtest", {})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["sample_size"] > 0 and b["dataset"]["id"] == big and b["dataset"]["sha256"]
+    for k in ("brier", "log_loss", "baseline_brier", "baseline_log_loss", "accuracy", "log_loss_gain"):
+        assert math.isfinite(b[k])
+    assert post(client, h, f"datasets/{big}/backtest", {}).json() == b                      # deterministic
+    assert conn.execute("select count(*) n from predictions where workspace_id=%s", (wid,)).fetchone()["n"] == 0   # nothing is saved
+    # Too short a file says why instead of returning empty numbers.
+    short = upload(client, h, name="Short", csv=sports_csv(n_rounds=8)).json()["id"]
+    r = post(client, h, f"datasets/{short}/backtest", {})
+    assert r.status_code == 422 and "at least" in r.json()["detail"]
+    # Only sports files can be tested, and other workspaces cannot reach it.
+    series = upload(client, h, kind="series", name="S").json()["id"]
+    assert post(client, h, f"datasets/{series}/backtest", {}).status_code == 422
+    uid2, wid2 = make_user(conn)
+    assert post(client, hdr(uid2, wid2), f"datasets/{big}/backtest", {}).status_code == 404
+
+
 def test_saved_dataset_forecast_is_an_immutable_prediction_that_the_library_and_assistant_understand(client, conn):
     uid, wid = make_user(conn)
     h = hdr(uid, wid)

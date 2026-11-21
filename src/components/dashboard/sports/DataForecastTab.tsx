@@ -19,6 +19,96 @@ interface Forecast {
   outputs: SportsOutputs;
 }
 
+interface Backtest {
+  sample_size: number;
+  matches: number;
+  min_train: number;
+  first_scored: string;
+  last_scored: string;
+  brier: number;
+  baseline_brier: number;
+  log_loss: number;
+  baseline_log_loss: number;
+  log_loss_gain: number;
+  log_loss_gain_se: number;
+  gain_is_clear: boolean;
+  accuracy: number;
+  baseline_accuracy: number;
+  reliability: { low: number; high: number; count: number; mean_predicted: number; observed: number }[];
+}
+
+/** Reads the backtest numbers in plain words, without claiming more than the sample supports. */
+function verdict(b: Backtest): string {
+  if (b.gain_is_clear) return `On these ${b.sample_size} matches the model beat the simple baseline by a margin larger than chance alone would usually explain.`;
+  if (b.log_loss_gain > 0) return `The model scored slightly better than the baseline on these ${b.sample_size} matches, but the gap is small enough that luck could explain it. Treat it as unproven.`;
+  return `The model did not beat the baseline on these ${b.sample_size} matches. On this data its forecasts add nothing over the overall home, draw and away rates.`;
+}
+
+function BacktestPanel({ dsId, adv }: { dsId: string; adv: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<Backtest | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [forId, setForId] = useState(dsId);
+  if (forId !== dsId) { setForId(dsId); setRes(null); setErr(null); }
+
+  async function run() {
+    setBusy(true);
+    setErr(null);
+    try {
+      setRes(await post<Backtest>(`data/datasets/${dsId}/backtest`, {}));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not run the test.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel title="How accurate is it on your data?" badge={<Badge tone="muted">Backtest</Badge>}>
+      <p className="text-xs leading-relaxed text-muted">
+        Replays your most recent matches one by one: each is predicted using only the matches before it, then compared with what happened. The model is scored against a baseline that only knows the overall home, draw and away rates.
+      </p>
+      <button type="button" disabled={busy} onClick={run} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-violet/60 px-4 py-2 text-sm font-semibold text-violet hover:bg-violet/10 disabled:opacity-50">
+        {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />} Test on my data
+      </button>
+      {err && <p role="alert" className="mt-3 text-sm text-red-300">{err}</p>}
+      {res && (
+        <div className="mt-4 space-y-4" aria-live="polite">
+          <p className="text-sm leading-relaxed">{verdict(res)}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="sr-only">Backtest scores, model against baseline</caption>
+              <thead><tr className="text-left text-[11px] text-muted"><th scope="col" className="pr-3 font-normal">Measure</th><th scope="col" className="pr-3 font-normal">Model</th><th scope="col" className="pr-3 font-normal">Baseline</th><th scope="col" className="font-normal">Better is</th></tr></thead>
+              <tbody className="font-mono">
+                <tr><th scope="row" className="pr-3 text-left font-sans font-normal">Log loss</th><td className="pr-3">{res.log_loss.toFixed(3)}</td><td className="pr-3">{res.baseline_log_loss.toFixed(3)}</td><td className="font-sans text-xs text-muted">lower</td></tr>
+                <tr><th scope="row" className="pr-3 text-left font-sans font-normal">Brier score</th><td className="pr-3">{res.brier.toFixed(3)}</td><td className="pr-3">{res.baseline_brier.toFixed(3)}</td><td className="font-sans text-xs text-muted">lower</td></tr>
+                <tr><th scope="row" className="pr-3 text-left font-sans font-normal">Right result called</th><td className="pr-3">{pct(res.accuracy)}</td><td className="pr-3">{pct(res.baseline_accuracy)}</td><td className="font-sans text-xs text-muted">higher</td></tr>
+              </tbody>
+            </table>
+          </div>
+          {res.reliability.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="mb-1 text-left text-xs text-muted">When the model gave an outcome this chance, how often it happened</caption>
+                <thead><tr className="text-left text-[11px] text-muted"><th scope="col" className="pr-3 font-normal">Model said</th><th scope="col" className="pr-3 font-normal">Average said</th><th scope="col" className="pr-3 font-normal">Happened</th><th scope="col" className="font-normal">Cases</th></tr></thead>
+                <tbody className="font-mono">
+                  {res.reliability.map((r) => (
+                    <tr key={r.low}><th scope="row" className="pr-3 text-left font-sans font-normal">{pct(r.low)} to {pct(r.high)}</th><td className="pr-3">{pct(r.mean_predicted)}</td><td className="pr-3">{pct(r.observed)}</td><td>{r.count}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-xs leading-relaxed text-muted">
+            Scored {res.sample_size} matches from {res.first_scored} to {res.last_scored}, each with at least {res.min_train} earlier matches to learn from. A few hundred matches can only show large differences, and a good score on past matches does not guarantee future ones. This tests the model on your data; it is not a promise about any league, and it is not betting or financial advice.
+          </p>
+          {adv && <p className="font-mono text-xs text-muted">log-loss gain {res.log_loss_gain.toFixed(4)} ± {res.log_loss_gain_se.toFixed(4)} (1 s.e.) · n={res.sample_size} of {res.matches}</p>}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 /** Forecasts from the user's own uploaded results: ratings are fitted on exactly those matches. */
 export function DataForecastTab({ adv }: { adv: boolean }) {
   const { list, error } = useDatasets(["sports_results"]);
@@ -92,7 +182,7 @@ export function DataForecastTab({ adv }: { adv: boolean }) {
             </div>
             <p className="text-xs leading-relaxed text-muted">
               Ratings fitted on {res.inputs.matches_used} matches from “{res.inputs.dataset}” ({res.inputs.home_team_matches} for {home}, {res.inputs.away_team_matches} for {away}); fit {res.inputs.fit_converged ? "converged" : "did not converge"}.
-              Dataset fingerprint <span className="font-mono">{res.inputs.dataset_sha256.slice(0, 12)}</span>. With few matches a team&apos;s rating is uncertain, and this model uses nothing beyond past scores. Its accuracy on your league has not been measured.
+              Dataset fingerprint <span className="font-mono">{res.inputs.dataset_sha256.slice(0, 12)}</span>. With few matches a team&apos;s rating is uncertain, and this model uses nothing beyond past scores. Use “Test on my data” below to see how it has done on your past matches.
             </p>
             {adv && <p className="text-xs text-muted">Cutoff {dt(res.feature_cutoff)} · {res.model.name}@{res.model.version}</p>}
             {res.id ? (
@@ -105,6 +195,8 @@ export function DataForecastTab({ adv }: { adv: boolean }) {
           </div>
         </Panel>
       )}
+
+      {ds && <BacktestPanel dsId={ds.id} adv={adv} />}
     </div>
   );
 }

@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, StringConstraints
 
+from . import backtest
 from . import datasets as ds
 from . import model as sports_model
 from . import plans
@@ -154,6 +155,18 @@ class ForecastBody(BaseModel):
     home: Annotated[str, StringConstraints(min_length=1, max_length=60)]
     away: Annotated[str, StringConstraints(min_length=1, max_length=60)]
     save: bool = False
+
+
+@router.post("/datasets/{dataset_id}/backtest", status_code=200)
+def backtest_dataset(dataset_id: uuid.UUID, p: Auth, conn=Depends(get_conn)):
+    """Measure how well the model predicts the most recent matches of an upload, using only earlier matches for each one."""
+    r = _get(conn, p, dataset_id, "sports_results")
+    hist = ds.hist_matches(r["data"]["matches"])
+    res = backtest.evaluate(hist, sorted(r["summary"]["team_matches"]), r["name"])
+    if not res["sample_size"]:
+        raise HTTPException(422, f"Not enough matches to test: at least {res['min_train'] + 1} are needed, this file has {res['matches']}.")
+    return {**res, "dataset": {"id": r["id"], "name": r["name"], "sha256": r["sha256"]},
+            "model": {"name": sports_model.MODEL_NAME, "version": sports_model.MODEL_VERSION}}
 
 
 @router.post("/datasets/{dataset_id}/forecast", status_code=200)
