@@ -12,16 +12,20 @@ import math
 from collections import defaultdict
 from datetime import date
 
+from . import football_ensemble as fe
+from . import football_gbm as gb
 from . import football_models as fm
 from .football_history import season_label
 from .football_models import M, outcome
 
-MODEL_VERSION = "1.0.0"
+MODEL_VERSION = "1.1.0"
 MODELS = {
     "frequency": "Historical frequencies (baseline)",
     "elo": "Elo rating",
     "poisson": "Time-weighted Poisson",
     "dixon_coles": "Dixon-Coles",
+    "gbm": "Boosted trees",
+    "ensemble": "Calibrated ensemble",
 }
 DEFAULT_SPLIT = {"training": [f"{y}/{(y + 1) % 100:02d}" for y in range(2016, 2023)], "validation": ["2023/24"], "test": ["2024/25", "2025/26"]}
 ELO_GRID = [fm.EloParams(k, 65.0, r, nc) for k in (15.0, 25.0) for r in (0.15, 0.35) for nc in (0.0, -75.0)]
@@ -105,7 +109,7 @@ def summarize(preds: list[dict]) -> dict:
         if model not in out:
             continue
         gains = {}
-        for base in ("frequency", "elo"):
+        for base in ("frequency", "elo", "dixon_coles"):
             if base != model and base in ll and ll[base]:
                 ks = sorted(set(ll[model]) & set(ll[base]))
                 gains[f"vs_{base}"] = paired_gain([ll[model][k] for k in ks], [ll[base][k] for k in ks])
@@ -234,12 +238,42 @@ def run_chronological(matches: list[M], split: dict | None = None) -> dict:
     rho_test = fm.fit_rho(_rho_rows(ms, rates, max(0, t0 - RHO_WINDOW), t0))
     out["tuning"]["poisson"] = {"grid": pgrid, "chosen": {"half_life_days": hl, "prior_games": pr}}
     out["tuning"]["dixon_coles"] = {"rho_validation": rho_val, "rho_test": rho_test, "rho_window_fixtures": RHO_WINDOW}
+    # --- Boosted trees (leak-free features, depth and rounds chosen on validation), then the calibrated ensemble fitted on validation only
+    X = gb.feature_rows(ms, pre, ep.home_adv)
+    y_all = [outcome(m[3], m[4]) for m in ms]
+    train_idx = range(burn, v0)
+    boosted: dict = {}
+    if len(train_idx) >= 4 * gb.MIN_LEAF:
+        gb_grid, gbest = [], None
+        for depth in (2, 3):
+            mdl = gb.fit([X[i] for i in train_idx], [y_all[i] for i in train_idx], {"max_depth": depth}, [X[i] for i in val_idx], [y_all[i] for i in val_idx])
+            ll = mdl["validation_curve"][mdl["rounds"] - 1]
+            gb_grid.append({"max_depth": depth, "rounds": mdl["rounds"], "validation_log_loss": ll})
+            if gbest is None or ll < gbest[0]:
+                gbest = (ll, depth, mdl)
+        _, depth, gbm_val = gbest
+        gbm_test = gb.fit([X[i] for i in range(burn, t0)], [y_all[i] for i in range(burn, t0)], {"max_depth": depth, "max_rounds": gbm_val["rounds"]})
+        gbm_test["rounds"] = len(gbm_test["trees"])
+        member_val = {"elo": [fm.elo_probs(*pre[i], ep, map_val) for i in val_idx], "dixon_coles": [_hda(rates[i][0], rates[i][1], rho_val) for i in val_idx],
+                      "gbm": [gb.predict(gbm_val, X[i]) for i in val_idx]}
+        ens = fe.fit_ensemble(member_val, [y_all[i] for i in val_idx])
+        boosted = {"validation": gbm_val, "test": gbm_test, "ensemble": ens}
+        out["tuning"]["gbm"] = {"grid": gb_grid, "chosen": {"max_depth": depth, "rounds": gbm_val["rounds"]}, "features": gb.FEATURES,
+                                "importance_validation_fit": gbm_val["importance"], "model_for_test": gbm_test}
+        out["tuning"]["ensemble"] = ens
     freq = fm.Frequencies(ms)
     preds: list[dict] = []
     for period, idxs, emap, rho in (("validation", val_idx, map_val, rho_val), ("test", test_idx, map_test, rho_test)):
         rows = _freq_rows(ms, idxs, freq) + _elo_rows(ms, idxs, pre, ep, emap)
         rows += [_grid_row("poisson", ms[i], rates[i][0], rates[i][1], 0.0, rates[i][2]) for i in idxs]
         rows += [_grid_row("dixon_coles", ms[i], rates[i][0], rates[i][1], rho, rates[i][2]) for i in idxs]
+        if boosted:
+            mdl = boosted["validation" if period == "validation" else "test"]
+            for i in idxs:
+                gp = gb.predict(mdl, X[i])
+                rows.append(_row("gbm", ms[i], gp, {"features": dict(zip(gb.FEATURES, X[i])), "rounds": mdl["rounds"]}))
+                members = {"elo": fm.elo_probs(*pre[i], ep, emap), "dixon_coles": _hda(rates[i][0], rates[i][1], rho), "gbm": gp}
+                rows.append(_row("ensemble", ms[i], fe.apply_ensemble(boosted["ensemble"], members), {"weights": boosted["ensemble"]["weights"], "temperature": boosted["ensemble"]["temperature"], "members": members}))
         for r in rows:
             r["period"] = period
         preds += rows
@@ -247,11 +281,16 @@ def run_chronological(matches: list[M], split: dict | None = None) -> dict:
     out["predictions"] = preds
     out["warnings"] = ["Settings were chosen on the validation period only. Nothing was tuned on the test period.",
                        "Models use match results only; injuries, expected goals, odds, squad and manager data were not used."]
+    if boosted:
+        out["warnings"] += ["Boosted-tree settings were chosen on the validation period, and the final trees were refitted on training + validation. The ensemble weights and temperature were fitted on validation only.",
+                            "The boosted-tree and ensemble models do not forecast goals, over 2.5 or both-teams-to-score: those markets come from the Poisson-family models."]
+    else:
+        out["warnings"].append("Too few training matches for the boosted-tree model; it and the ensemble were skipped.")
     return out
 
 
-def _hda(lh: float, la: float) -> list[float]:
-    mk = fm.grid_markets(fm.score_grid(lh, la))
+def _hda(lh: float, la: float, rho: float = 0.0) -> list[float]:
+    mk = fm.grid_markets(fm.score_grid(lh, la, rho))
     return [mk["p_home"], mk["p_draw"], mk["p_away"]]
 
 

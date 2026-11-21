@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { call, post } from "@/lib/client";
 import { Badge, Empty, ErrorPanel, Panel, dt, pct } from "../ui";
 import { field } from "../analysis";
+import { OpsTab } from "./FootballOps";
 import { FACTOR_NAMES, MatchTab, NoHistory, ProbBar, SimulatorTab, type Forecast } from "./FootballMatch";
 
 // ------------------------------------------------------------------ A. today's matches
@@ -30,7 +31,7 @@ function TodayTab({ onOpen }: { onOpen: (f: { home: string; away: string; kickof
           <div><label htmlFor="td-days" className="mb-1 block text-xs text-muted">Show the next</label>
             <select id="td-days" value={days} onChange={(e) => setDays(Number(e.target.value))} className={field}>{[1, 7, 14, 30].map((d) => <option key={d} value={d}>{d === 1 ? "day (today)" : `${d} days`}</option>)}</select></div>
           <div><label htmlFor="td-model" className="mb-1 block text-xs text-muted">Model</label>
-            <select id="td-model" value={model} onChange={(e) => setModel(e.target.value)} className={field}><option value="dixon_coles">Dixon-Coles</option><option value="poisson">Time-weighted Poisson</option><option value="elo">Elo rating</option></select></div>
+            <select id="td-model" value={model} onChange={(e) => setModel(e.target.value)} className={field}><option value="dixon_coles">Dixon-Coles</option><option value="poisson">Time-weighted Poisson</option><option value="elo">Elo rating</option><option value="gbm">Boosted trees</option><option value="ensemble">Calibrated ensemble</option></select></div>
         </div>
         <p className="mt-2 text-xs text-muted">Fixtures come from fixtures files you import (future-dated rows). Kickoff times are not in the data, only dates. Each forecast is stored and scored against the real result once it is imported.</p>
       </Panel>
@@ -38,13 +39,14 @@ function TodayTab({ onOpen }: { onOpen: (f: { home: string; away: string; kickof
         <ul className="space-y-3" aria-label="Upcoming fixtures">
           {data.fixtures.map((f) => {
             const fc = f.forecasts?.[model];
+            const trained = f.forecasts && ("gbm" in f.forecasts);
             return (
               <li key={`${f.date}${f.home}${f.away}`} className="glass rounded-2xl p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2"><p className="font-semibold">{f.home} vs {f.away}</p><p className="text-xs text-muted">{f.date}</p></div>
-                {f.error ? <p className="mt-2 text-sm text-amber-200">{f.error}</p> : fc && (
+                {f.error ? <p className="mt-2 text-sm text-amber-200">{f.error}</p> : !fc && (model === "gbm" || model === "ensemble") && !trained ? <p className="mt-2 text-sm text-muted">The boosted-tree and ensemble models appear once a chronological backtest has been run (Model performance tab).</p> : fc && (
                   <div className="mt-3 space-y-2">
                     <ProbBar h={fc.p_home} d={fc.p_draw} a={fc.p_away} home={f.home} away={f.away} />
-                    <p className="font-mono text-xs text-muted">{fc.p_over_2_5 !== null ? `Over 2.5 ${pct(fc.p_over_2_5)} · Both score ${pct(fc.p_btts ?? 0)}` : "Over/under and both-teams-to-score are not available from the Elo model."}{fc.top_scorelines?.[0] ? ` · likeliest score ${fc.top_scorelines[0].home}–${fc.top_scorelines[0].away}` : ""}</p>
+                    <p className="font-mono text-xs text-muted">{fc.p_over_2_5 !== null ? `Over 2.5 ${pct(fc.p_over_2_5)} · Both score ${pct(fc.p_btts ?? 0)}` : "Over/under and both-teams-to-score are not available from this model."}{fc.top_scorelines?.[0] ? ` · likeliest score ${fc.top_scorelines[0].home}–${fc.top_scorelines[0].away}` : ""}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
                       {f.warnings && f.warnings.length > 0 && <span>{f.warnings.length} warning(s)</span>}
                       <button type="button" onClick={() => onOpen({ home: f.home, away: f.away, kickoff: f.date })} className="text-violet underline">Open match intelligence</button>
@@ -79,6 +81,12 @@ function verdictFor(name: string, g: Gain | undefined): string {
   if (!g || g.log_loss_gain === undefined) return "";
   if (g.clear) return `${name} clearly beat the frequency baseline.`;
   return g.log_loss_gain > 0 ? `${name} was slightly better than the frequency baseline, not by enough to rule out luck.` : `${name} was no better than the frequency baseline.`;
+}
+
+function verdictVsStats(name: string, g: Gain | undefined, base: string): string {
+  if (!g || g.log_loss_gain === undefined) return "";
+  if (g.clear) return g.log_loss_gain > 0 ? `${name} clearly beat ${base}.` : `${name} was clearly worse than ${base}.`;
+  return g.log_loss_gain > 0 ? `${name} was slightly better than ${base}, not by enough to rule out luck.` : `${name} was no better than ${base}.`;
 }
 
 function PerformanceTab({ names }: { names: Record<string, string> }) {
@@ -141,7 +149,7 @@ function PerformanceTab({ names }: { names: Record<string, string> }) {
                 </tbody>
               </table>
             </div>
-            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{["elo", "poisson", "dixon_coles"].filter((k) => res[k]).map((k) => <li key={k}>{verdictFor(names[k], res[k].gain?.vs_frequency)}</li>)}</ul>
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{["elo", "poisson", "dixon_coles"].filter((k) => res[k]).map((k) => <li key={k}>{verdictFor(names[k], res[k].gain?.vs_frequency)}</li>)}{["gbm", "ensemble"].filter((k) => res[k]).map((k) => <li key={k}>{verdictVsStats(names[k], res[k].gain?.vs_dixon_coles, names.dixon_coles)}</li>)}</ul>
             <p className="mt-2 text-xs text-muted">Lower log loss and Brier are better. A gain is the average log-loss improvement per match with one standard error; it is called clear only beyond two standard errors.</p>
           </Panel>
 
@@ -265,9 +273,9 @@ function SourcesTab() {
 }
 
 // ------------------------------------------------------------------ shell
-const TABS = [["today", "Today's matches"], ["match", "Match intelligence"], ["simulator", "Simulator"], ["performance", "Model performance"], ["sources", "Data & factors"]] as const;
+const TABS = [["today", "Today's matches"], ["match", "Match intelligence"], ["simulator", "Simulator"], ["performance", "Model performance"], ["operations", "Model operations"], ["sources", "Data & factors"]] as const;
 type TabId = (typeof TABS)[number][0];
-const NAMES: Record<string, string> = { frequency: "Historical frequencies", elo: "Elo rating", poisson: "Time-weighted Poisson", dixon_coles: "Dixon-Coles" };
+const NAMES: Record<string, string> = { frequency: "Historical frequencies", elo: "Elo rating", poisson: "Time-weighted Poisson", dixon_coles: "Dixon-Coles", gbm: "Boosted trees", ensemble: "Calibrated ensemble" };
 
 export function FootballIntel() {
   const [tab, setTab] = useState<TabId>("today");
@@ -279,7 +287,7 @@ export function FootballIntel() {
   }, [tab]);
   return (
     <div>
-      <p className="mb-3 text-xs leading-relaxed text-muted">Forecasts from three statistical models (Elo, time-weighted Poisson, Dixon-Coles) built on the Premier League results you imported. They use match results only: anything else (injuries, expected goals, odds) is shown as unavailable unless you upload it. Probabilities are estimates, never guarantees.</p>
+      <p className="mb-3 text-xs leading-relaxed text-muted">Forecasts from three statistical models (Elo, time-weighted Poisson, Dixon-Coles) and, after a backtest, a boosted-tree model and a calibrated ensemble, all built on the Premier League results you imported. They use match results only: anything else (injuries, expected goals, odds) is shown as unavailable unless you upload it. Probabilities are estimates, never guarantees.</p>
       <div role="tablist" aria-label="Football intelligence" onKeyDown={onKey} className="mb-4 inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-bg/60 p-1">
         {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold ${tab === id ? "bg-primary text-white" : "text-muted hover:text-ink"}`}>{label}</button>)}
       </div>
@@ -288,6 +296,7 @@ export function FootballIntel() {
         {tab === "match" && <MatchTab key={open ? `${open.home}${open.away}${open.kickoff}` : "free"} initial={open} />}
         {tab === "simulator" && <SimulatorTab />}
         {tab === "performance" && <PerformanceTab names={NAMES} />}
+        {tab === "operations" && <OpsTab />}
         {tab === "sources" && <SourcesTab />}
       </div>
     </div>

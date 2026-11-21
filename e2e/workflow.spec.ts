@@ -787,6 +787,20 @@ test("football intelligence: each data type shows its own requirements, then for
     await intel.getByLabel("Period").selectOption("validation");
     await expect(intel.getByText("Calibration", { exact: true })).toBeVisible();
     await expect(intel.getByText(/Nothing was tuned on the test period/)).toBeVisible();
+    await expect(intel.getByRole("rowheader", { name: "Boosted trees" }).first()).toBeVisible();
+    await expect(intel.getByRole("rowheader", { name: "Calibrated ensemble" }).first()).toBeVisible();
+    await expect(intel.getByText(/(Boosted trees|Calibrated ensemble) (clearly|was)/).first()).toBeVisible();
+  });
+
+  await test.step("model operations: drift is not claimed without evidence, and the policy is explained", async () => {
+    await page.getByRole("tab", { name: "Model operations" }).click();
+    await expect(intel.getByText("Model health")).toBeVisible();
+    await expect(intel.getByText("Not enough results yet")).toBeVisible();
+    await expect(intel.getByText(/No scheduler is configured, so nothing runs by itself/)).toBeVisible();
+    await expect(intel.getByText(/Policy: retrain when 100 or more matches/)).toBeVisible();
+    await intel.getByRole("button", { name: "Check now" }).click();
+    await expect(intel.getByText(/Checked\. \d+ finished forecasts? (was|were) scored/)).toBeVisible();
+    await expect(intel.getByRole("cell", { name: "Checked, 0 scored" }).or(intel.getByRole("cell", { name: /Checked, \d+ scored/ })).first()).toBeVisible();
   });
 });
 

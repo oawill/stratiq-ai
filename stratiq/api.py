@@ -334,6 +334,7 @@ from .comments_api import router as comments_router  # noqa: E402
 from .data_api import router as data_router  # noqa: E402
 from .football_api import router as football_router  # noqa: E402
 from .football_intel_api import router as football_intel_router  # noqa: E402
+from .football_jobs_api import router as football_jobs_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
@@ -349,3 +350,4 @@ app.include_router(comments_router)
 app.include_router(data_router)
 app.include_router(football_router)
 app.include_router(football_intel_router)
+app.include_router(football_jobs_router)

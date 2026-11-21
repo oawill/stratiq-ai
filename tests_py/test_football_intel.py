@@ -188,7 +188,7 @@ def test_splits_are_validated():
 def test_rolling_origin_predicts_each_later_season_from_earlier_ones_only():
     ms = seasons(range(2020, 2024))
     r = fb.run_rolling(ms)
-    assert r["seasons_predicted"] == ["2022/23", "2023/24"] and set(r["results"]["rolling"]) == set(fb.MODELS)
+    assert r["seasons_predicted"] == ["2022/23", "2023/24"] and set(r["results"]["rolling"]) == set(fb.MODELS) - {"gbm", "ensemble"}
     cut = [m for m in ms if m[0] >= date(2023, 8, 1)][100][0]
     again = fb.run_rolling(tamper(ms, cut))
     key = lambda p: (p["model"], p["date"], p["home"], p["away"])
@@ -338,10 +338,10 @@ def test_backtest_is_stored_reproducibly_and_visible_only_to_its_workspace(clien
     r = post(client, h, "intel/backtest", {"mode": "chronological", "split": SPLIT})
     assert r.status_code == 200, r.text
     run = r.json()
-    assert run["predictions_stored"] == 760 * 4 and run["split"] == SPLIT and "predictions" not in run
-    assert conn.execute("select count(*) n from football_predictions where backtest_run_id=%s", (run["id"],)).fetchone()["n"] == 3040
-    assert conn.execute("select count(*) n from football_prediction_outcomes o join football_predictions p on p.id=o.prediction_id where p.backtest_run_id=%s", (run["id"],)).fetchone()["n"] == 3040
-    assert conn.execute("select count(*) n from football_model_versions where backtest_run_id=%s", (run["id"],)).fetchone()["n"] == 4
+    assert run["predictions_stored"] == 760 * 6 and run["split"] == SPLIT and "predictions" not in run
+    assert conn.execute("select count(*) n from football_predictions where backtest_run_id=%s", (run["id"],)).fetchone()["n"] == 4560
+    assert conn.execute("select count(*) n from football_prediction_outcomes o join football_predictions p on p.id=o.prediction_id where p.backtest_run_id=%s", (run["id"],)).fetchone()["n"] == 4560
+    assert conn.execute("select count(*) n from football_model_versions where backtest_run_id=%s", (run["id"],)).fetchone()["n"] == 6
     detail = get(client, h, f"intel/backtests/{run['id']}").json()
     assert detail["data_sha256"] == run["data_sha256"] and detail["history_changed_since"] is False and detail["results"]["test"]["poisson"]["1x2"]["n"] == 380
     page = get(client, h, f"intel/backtests/{run['id']}/predictions?model=dixon_coles&period=test&limit=5").json()["predictions"]

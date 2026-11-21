@@ -46,7 +46,15 @@ def _settings(run) -> dict:
     if not run or not run["tuning"]:
         return fi.default_settings()
     t = run["tuning"]
-    return {"tuned": True, "run_id": str(run["id"]), "elo": {**t["elo"]["chosen"], **t["elo"]["mapping_for_test"]}, "poisson": t["poisson"]["chosen"], "rho": t["dixon_coles"]["rho_test"]}
+    s = {"tuned": True, "run_id": str(run["id"]), "elo": {**t["elo"]["chosen"], **t["elo"]["mapping_for_test"]}, "poisson": t["poisson"]["chosen"], "rho": t["dixon_coles"]["rho_test"]}
+    if t.get("gbm") and t.get("ensemble"):
+        s["gbm"], s["ensemble"] = t["gbm"]["model_for_test"], t["ensemble"]
+    return s
+
+
+def _light(settings: dict) -> dict:
+    """Settings without the tree structure, for recording against a model version (the run id identifies the trees)."""
+    return {k: v for k, v in settings.items() if k != "gbm"} | ({"gbm": {"rounds": settings["gbm"]["rounds"], "max_depth": settings["gbm"]["params"]["max_depth"]}} if settings.get("gbm") else {})
 
 
 def _calibration(run) -> dict | None:
@@ -102,7 +110,10 @@ def _store_run(conn, p, res: dict, ms: list) -> dict:
     last = ms[-1][0] if ms else None
     versions = {}
     for model in fb.MODELS:
-        params = {"model": model, "tuning": (res.get("tuning") or {}).get({"elo": "elo", "poisson": "poisson", "dixon_coles": "dixon_coles"}.get(model, ""), None), "settings": res.get("settings")}
+        tun = (res.get("tuning") or {}).get(model)
+        if model == "gbm" and tun:
+            tun = {k: v for k, v in tun.items() if k != "model_for_test"}
+        params = {"model": model, "tuning": tun, "settings": res.get("settings")}
         versions[model] = _version(conn, p, model, params, res["data_sha256"], run_id, last)
     pred_rows, out_rows = [], []
     for r in res["predictions"]:
@@ -216,7 +227,7 @@ def _persist_live(conn, p, snap: dict, fc: dict, settings: dict, data_sha: str, 
         (p.workspace_id, fixture_date, snap["home"], snap["away"], cutoff, json.dumps(snap["features"], default=str), json.dumps(snap["availability"]), json.dumps(snap["warnings"]), snap["sha256"])).fetchone()
     ids = {}
     for name, f in fc.items():
-        vid = _version(conn, p, name, {"model": name, "settings": settings}, data_sha)
+        vid = _version(conn, p, name, {"model": name, "settings": _light(settings)}, data_sha)
         pr = f["probs"]
         row = conn.execute(
             """insert into football_predictions (workspace_id, kind, model_version_id, snapshot_id, season, fixture_date, home_team, away_team, cutoff, p_home, p_draw, p_away, p_over_2_5, p_btts,

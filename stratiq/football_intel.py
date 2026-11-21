@@ -10,11 +10,13 @@ import json
 import math
 from datetime import date
 
+from . import football_ensemble as fe
+from . import football_gbm as gb
 from . import football_models as fm
 from .football_history import season_label
 from .football_models import M
 
-MODEL_NAMES = {"elo": "Elo rating", "poisson": "Time-weighted Poisson", "dixon_coles": "Dixon-Coles"}
+MODEL_NAMES = {"elo": "Elo rating", "poisson": "Time-weighted Poisson", "dixon_coles": "Dixon-Coles", "gbm": "Boosted trees", "ensemble": "Calibrated ensemble"}
 TOTAL_FACTORS = 13
 
 # The thirteen factor groups. `needs` says what must exist in the workspace for the factor to be available.
@@ -239,6 +241,13 @@ def live_forecast(ms: list[M], home: str, away: str, cutoff: date, settings: dic
         mk = fm.grid_markets(fm.score_grid(lh, la, rho))
         out[name] = {"probs": [mk["p_home"], mk["p_draw"], mk["p_away"]], "p_over_2_5": mk["p_over_2_5"], "p_btts": mk["p_btts"], "top_scorelines": mk["top_scorelines"],
                      "expected_goals": [lh, la], "inputs": {**inp, "rho": rho}, "drivers": fm.poisson_drivers(inp)}
+    # The boosted trees and the ensemble exist only after a backtest, and describe the fixture as it is: a what-if scenario is not applied to them.
+    if st.get("gbm") and st.get("ensemble") and not adj:
+        x = gb.live_vector(prior, home, away, cutoff, rh + ep.home_adv - ra)
+        gp = gb.predict(st["gbm"], x)
+        out["gbm"] = {"probs": gp, "inputs": dict(zip(gb.FEATURES, x)), "drivers": [{"factor": f, "share": v} for f, v in list(st["gbm"].get("importance", {}).items())[:3]]}
+        members = {"elo": out["elo"]["probs"], "dixon_coles": out["dixon_coles"]["probs"], "gbm": gp}
+        out["ensemble"] = {"probs": fe.apply_ensemble(st["ensemble"], members), "inputs": {"weights": st["ensemble"]["weights"], "temperature": st["ensemble"]["temperature"], "members": members}, "drivers": []}
     return out
 
 
