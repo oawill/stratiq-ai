@@ -56,7 +56,8 @@ test("public pages, metadata and assets carry the VELQORIN brand", async ({ page
     const res = await request.get(asset);
     expect(res.status(), asset).toBe(200);
   }
-  // The product names appear in the marketing navigation.
+  // The product names appear in the marketing navigation (the home page has its own anchor navigation, so check an inner page).
+  await page.goto("/pricing");
   await page.getByRole("button", { name: /Intelligence/ }).click();
   for (const n of ["VELQORIN Sports", "VELQORIN Strategy", "VELQORIN Politics", "VELQORIN Markets"]) await expect(page.getByRole("link", { name: new RegExp(n) }).first()).toBeVisible();
 });
@@ -79,8 +80,8 @@ test("anonymous visitors cannot reach the application or its API", async ({ page
 test("landing page leads to a working account and every module", async ({ page }) => {
   await test.step("landing page", async () => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Predict Outcomes.");
-    await expect(page.getByRole("link", { name: "Explore VELQORIN", exact: true })).toHaveAttribute("href", "#demo");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("From Data to Strategic Advantage");
+    await expect(page.getByRole("link", { name: "Explore the Platform", exact: true })).toHaveAttribute("href", "#sports");
     await page.getByRole("link", { name: "See How It Works" }).first().click();
     await expect(page).toHaveURL(/\/how-it-works/);
     await page.goto("/");

@@ -24,6 +24,11 @@
   --color-ink: var(--text);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-night: #030b1c;
+  --color-night2: #07152b;
+  --color-ion: #00e5ff;
+  --color-azure: #2563eb;
+  --color-royal: #8b5cf6;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -111,4 +116,89 @@ body {
   background: var(--primary);
   padding: 0.5rem 1rem;
   border-radius: 8px;
+}
+
+
+/* ---------------------------------------------------------------------------------------------------------------------------
+   Cinematic landing page. These tokens apply only inside .cine, so the application and its dashboard keep their own palette, while
+   every existing landing section (which reads --bg, --primary and so on) picks up the intelligence-command-centre theme.
+   --------------------------------------------------------------------------------------------------------------------------- */
+.cine {
+  --bg: #030b1c;
+  --bg-2: #07152b;
+  --card: #0b1d3a;
+  --primary: #8b5cf6;
+  --violet: #a78bfa;
+  --cyan: #00e5ff;
+  --azure: #2563eb;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --line: rgba(148, 163, 184, 0.16);
+  background: var(--bg);
+  color: var(--text);
+}
+html:has(.cine) body {
+  background: #030b1c;
+}
+.cine .glass {
+  background: linear-gradient(160deg, rgba(11, 29, 58, 0.72), rgba(7, 21, 43, 0.58));
+  border: 1px solid rgba(0, 229, 255, 0.14);
+}
+.cine .text-gradient {
+  background: linear-gradient(100deg, #00e5ff 0%, #2563eb 48%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.cine .grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Hero text appears with CSS only, so the largest paint is never held back by JavaScript. */
+@keyframes cine-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cine-rise {
+  animation: cine-rise 0.7s ease-out both;
+}
+.cine-rise-2 {
+  animation: cine-rise 0.7s 0.12s ease-out both;
+}
+.cine-rise-3 {
+  animation: cine-rise 0.7s 0.24s ease-out both;
+}
+
+@keyframes cine-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.cine-pulse {
+  animation: cine-pulse 2.6s ease-in-out infinite;
+}
+
+.cine-section {
+  position: relative;
+  scroll-margin-top: 4rem;
+}
+.cine-section-full {
+  min-height: 100svh;
+}
+@media (max-width: 1023px) {
+  .cine-section-full {
+    min-height: 0;
+  }
 }
