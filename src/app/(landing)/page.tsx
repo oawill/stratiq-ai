@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import { IntelligenceHero } from "@/components/landing/IntelligenceHero";
+import { SportsSection } from "@/components/landing/SportsSection";
+import { StrategySection } from "@/components/landing/StrategySection";
 import { Pillars } from "@/components/sections/Pillars";
 import { HowItWorks } from "@/components/sections/HowItWorks";
 import { Transparency } from "@/components/sections/Transparency";
@@ -16,6 +18,8 @@ export default function Home() {
   return (
     <>
       <IntelligenceHero />
+      <SportsSection />
+      <StrategySection />
       <Pillars />
       <HowItWorks />
       <Transparency />
