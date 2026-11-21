@@ -6,11 +6,12 @@ import math
 from datetime import date, datetime, time, timedelta, timezone
 
 
-def record_source(conn, p, kind: str, name: str, reference: str | None, coverage: dict, quality: dict) -> str:
+def record_source(conn, p, kind: str, name: str, reference: str | None, coverage: dict, quality: dict, provenance: dict | None = None) -> str:
+    pv = provenance or {}
     row = conn.execute(
-        """insert into football_data_sources (workspace_id, kind, name, provider, reference, coverage, quality, created_by)
-           values (%s,%s,%s,'user_upload',%s,%s,%s,%s) returning id""",
-        (p.workspace_id, kind, name, reference, json.dumps(coverage), json.dumps(quality), p.user_id),
+        """insert into football_data_sources (workspace_id, kind, name, provider, reference, coverage, quality, created_by, source_url, source_licence, retrieved_on, dataset_version)
+           values (%s,%s,%s,'user_upload',%s,%s,%s,%s,%s,%s,%s,%s) returning id""",
+        (p.workspace_id, kind, name, reference, json.dumps(coverage), json.dumps(quality), p.user_id, pv.get("source_url"), pv.get("source_licence"), pv.get("retrieved_on"), pv.get("dataset_version")),
     ).fetchone()
     return str(row["id"])
 

@@ -41,7 +41,7 @@ def evidence(p: Auth, conn=Depends(get_conn)):
     ms = _plain(stored)
     seasons = sorted({s for s, *_ in stored})
     sources = conn.execute(
-        "select kind, name, provider, reference, licence_note, coverage, created_at from football_data_sources where workspace_id=%s order by created_at desc limit 30", (wid,)).fetchall()
+        "select kind, name, provider, reference, licence_note, source_url, source_licence, retrieved_on, dataset_version, coverage, created_at from football_data_sources where workspace_id=%s order by created_at desc limit 30", (wid,)).fetchall()
     uploads = conn.execute("select kind, name, row_count, sha256, created_at from datasets where workspace_id=%s order by created_at desc limit 30", (wid,)).fetchall()
     run = _latest_run(conn, p)
     rolling = _latest_run(conn, p, "rolling")

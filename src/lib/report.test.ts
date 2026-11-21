@@ -13,7 +13,7 @@ const empty: Evidence = {
 const full: Evidence = {
   ...empty,
   data: { matches: 3800, seasons: ["2016/17", "2017/18", "2018/19"], first: "2016-08-13", last: "2019-05-12", data_sha256: "a".repeat(64),
-    sources: [{ kind: "match_results", name: "EPL.csv", provider: "user_upload", reference: "EPL.csv sha256:abc", licence_note: "Supplied by the user.", created_at: "2026-01-01T10:00:00Z" }], uploads: [] },
+    sources: [{ kind: "match_results", name: "EPL.csv", provider: "user_upload", reference: "EPL.csv sha256:abc", licence_note: "Supplied by the user.", source_url: "https://example.org/epl.csv", source_licence: "Personal use only", retrieved_on: "2026-01-01", dataset_version: "2026-01", created_at: "2026-01-01T10:00:00Z" }], uploads: [] },
   historical_evaluation: {
     chronological: { run_id: "r1", created_at: "2026-01-02T10:00:00Z", matches: 3800, data_sha256: "a".repeat(64), history_changed_since: true, split: { training: ["2016/17"], validation: ["2017/18"], test: ["2018/19"] }, model_version: "1.1.0",
       test: [{ model: "Dixon-Coles", matches: 380, log_loss: 1.0439, brier: 0.6, accuracy: 0.5, calibration_gap: 0.02, gain_vs_frequency: 0.0186, gain_standard_error: 0.004, gain_clear: true }],
@@ -35,6 +35,7 @@ describe("evidenceToMarkdown", () => {
     const md = evidenceToMarkdown(full);
     expect(md).toContain("3,800 Premier League matches, seasons 2016/17 to 2018/19 (3 seasons)");
     expect(md).toContain("`" + "a".repeat(64) + "`");
+    expect(md).toContain("| EPL.csv | match_results | user_upload | https://example.org/epl.csv | Personal use only | 2026-01-01 | 2026-01 | 2026-01-01 |");
     expect(md).toContain("| Dixon-Coles | 380 | 1.044 | 0.600 | 50.0% | 2.0 pts | +0.019 ± 0.004 (clear) |");
     expect(md).toContain("The imported history has changed since this run");
     expect(md.indexOf("## 2. Historical evaluation")).toBeLessThan(md.indexOf("## 3. Forecasts"));

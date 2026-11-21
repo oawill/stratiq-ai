@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import date, datetime, timezone
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from . import datasets as ds
 from . import football_features as ff
@@ -27,12 +28,40 @@ Competition = Literal["EPL"]
 SeasonStr = Annotated[str, StringConstraints(pattern=r"^[0-9]{4}/[0-9]{2}$")]
 
 
+class Provenance(BaseModel):
+    """Where a file came from. Supplied by the person importing and stored as given: the application does not fetch or verify it."""
+    source_url: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+    source_licence: Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)] | None = None
+    retrieved_on: date | None = None
+    dataset_version: Annotated[str, StringConstraints(strip_whitespace=True, max_length=60)] | None = None
+
+    @field_validator("source_url", "source_licence", "dataset_version", mode="after")
+    @classmethod
+    def _blank_is_none(cls, v):
+        return v or None
+
+    @field_validator("source_url", mode="after")
+    @classmethod
+    def _web_address(cls, v):
+        if v and not re.match(r"^https?://\S+$", v, re.I):
+            raise ValueError("The source address must start with http:// or https:// and contain no spaces.")
+        return v
+
+    @field_validator("retrieved_on", mode="after")
+    @classmethod
+    def _not_future(cls, v):
+        if v and v > datetime.now(timezone.utc).date():
+            raise ValueError("The retrieval date cannot be in the future.")
+        return v
+
+
 class ImportBody(BaseModel):
     competition: Competition = "EPL"
     filename: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = None
     csv: str = Field(max_length=ds.MAX_CHARS + 1000)
     combined: bool = False       # the file holds several seasons
     dry_run: bool = False        # check only; store nothing
+    provenance: Provenance | None = None
 
 
 def _stored(conn, wid, competition: str, seasons: list[str] | None = None) -> list[tuple]:
@@ -94,7 +123,8 @@ def import_file(body: ImportBody, p: Auth, conn=Depends(get_conn)):
             )
     if not body.dry_run and new:
         football_store.record_source(conn, p, "match_results", body.filename or "Match results", f"{body.filename or 'upload'} sha256:{sha[:12]}",
-                                     {"matches": len(new), "seasons": seasons}, {"rejected": src.rejected_count, "conflicts": src.conflict_count + len(clash), "warnings": src.warnings})
+                                     {"matches": len(new), "seasons": seasons}, {"rejected": src.rejected_count, "conflicts": src.conflict_count + len(clash), "warnings": src.warnings},
+                                     body.provenance.model_dump(mode="json") if body.provenance else None)
         football_store.refresh_teams(conn, p.workspace_id, body.competition)
     scored = football_store.reconcile(conn, p.workspace_id) if (not body.dry_run and new) else 0
     stored = _stored(conn, p.workspace_id, body.competition, seasons)
@@ -112,6 +142,7 @@ def import_file(body: ImportBody, p: Auth, conn=Depends(get_conn)):
         "conflicts": src.conflict_count + len(clash), "conflict_rows": conflicts[:fh.MAX_STORED_ISSUES], "unplayed_skipped": src.unplayed,
         "unknown_clubs": src.unknown_clubs, "warnings": src.warnings, "seasons": [{**r, "first_date": r["first_date"].isoformat(), "last_date": r["last_date"].isoformat()} for r in reports],
         "missing": sum(r["missing_count"] for r in reports), "upcoming_fixtures": len(src.upcoming), "forecasts_scored": scored,
+        "provenance": body.provenance.model_dump(mode="json") if body.provenance else None,
     }
     if not body.dry_run:
         status = "needs_review" if needs_review else "ok"
@@ -127,7 +158,7 @@ def import_file(body: ImportBody, p: Auth, conn=Depends(get_conn)):
         )
         conn.execute(
             "insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'football.import',%s)",
-            (p.workspace_id, p.user_id, json.dumps({"import_id": str(row["id"]), "file_sha256": sha, "new": len(new), "rejected": src.rejected_count, "conflicts": report["conflicts"]})),
+            (p.workspace_id, p.user_id, json.dumps({"import_id": str(row["id"]), "file_sha256": sha, "new": len(new), "rejected": src.rejected_count, "conflicts": report["conflicts"], "provenance": report["provenance"]})),
         )
     return report
 

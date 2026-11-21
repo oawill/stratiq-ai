@@ -6,7 +6,7 @@ export interface Evidence {
   workspace: string | null;
   generated_at: string;
   data: { matches: number; seasons: string[]; first: string | null; last: string | null; data_sha256: string | null;
-    sources: { kind: string; name: string; provider: string; reference: string | null; licence_note: string; created_at: string }[];
+    sources: { kind: string; name: string; provider: string; reference: string | null; licence_note: string; source_url: string | null; source_licence: string | null; retrieved_on: string | null; dataset_version: string | null; created_at: string }[];
     uploads: { kind: string; name: string; row_count: number; sha256: string; created_at: string }[] };
   historical_evaluation: {
     chronological: null | { run_id: string; created_at: string; matches: number; data_sha256: string; history_changed_since: boolean; split: Record<string, string[]> | null; model_version: string | null;
@@ -38,7 +38,7 @@ export function evidenceToMarkdown(e: Evidence): string {
   L.push("## 1. Data and provenance", "");
   if (e.data.matches === 0) L.push("No match history has been imported.", "");
   else L.push(`- ${e.data.matches.toLocaleString("en-US")} Premier League matches, seasons ${e.data.seasons[0]} to ${e.data.seasons[e.data.seasons.length - 1]} (${e.data.seasons.length} seasons), ${day(e.data.first)} to ${day(e.data.last)}.`, `- Data fingerprint (SHA-256): \`${e.data.data_sha256}\``, "");
-  if (e.data.sources.length) L.push("| Source | Kind | Provider | Reference | Added |", "|---|---|---|---|---|", ...e.data.sources.map((s) => `| ${s.name} | ${s.kind} | ${s.provider} | ${s.reference ?? "n/a"} | ${day(s.created_at)} |`), "", `Licence note: ${e.data.sources[0].licence_note}`, "");
+  if (e.data.sources.length) L.push("| Source | Kind | Provider | Source address | Licence (as stated) | Retrieved | Version | Imported |", "|---|---|---|---|---|---|---|---|", ...e.data.sources.map((s) => `| ${s.name} | ${s.kind} | ${s.provider} | ${s.source_url ?? "not recorded"} | ${s.source_licence ?? "not recorded"} | ${day(s.retrieved_on)} | ${s.dataset_version ?? "not recorded"} | ${day(s.created_at)} |`), "", `Licence note: ${e.data.sources[0].licence_note} Source details are as typed by the person who imported the file; the application does not fetch or verify them.`, "");
   if (e.data.uploads.length) L.push("Datasets in the Data workspace:", "", ...e.data.uploads.map((u) => `- ${u.name} (${u.kind}, ${u.row_count.toLocaleString("en-US")} rows, sha256 \`${u.sha256.slice(0, 12)}…\`, ${day(u.created_at)})`), "");
 
   L.push("## 2. Historical evaluation (backtests on past matches)", "");

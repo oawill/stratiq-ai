@@ -17,7 +17,7 @@ interface Summary {
 interface ImportReport {
   filename: string | null; dry_run: boolean; rows_read: number; valid: number; new: number; unchanged: number; rejected: number; rejected_rows: { line: number; reason: string }[];
   duplicates: number; conflicts: number; conflict_rows: { season: string; date: string; home: string; away: string; found: string[] }[]; unplayed_skipped: number;
-  unknown_clubs: string[]; warnings: string[]; seasons: SeasonRow[]; missing: number; status?: string;
+  unknown_clubs: string[]; warnings: string[]; seasons: SeasonRow[]; missing: number; status?: string; provenance?: { source_url: string | null; source_licence: string | null; retrieved_on: string | null; dataset_version: string | null } | null;
 }
 interface FileState { name: string; state: "waiting" | "working" | "done" | "failed"; message?: string; report?: ImportReport }
 interface MatchRow { season: string; match_date: string; home_team: string; away_team: string; home_goals: number; away_goals: number }
@@ -48,6 +48,7 @@ export function FootballHistory() {
   const [files, setFiles] = useState<File[]>([]);
   const [combined, setCombined] = useState(false);
   const [checkOnly, setCheckOnly] = useState(false);
+  const [src, setSrc] = useState({ source_url: "", source_licence: "", retrieved_on: "", dataset_version: "" });
   const [progress, setProgress] = useState<FileState[]>([]);
   const [importing, setImporting] = useState(false);
   const [view, setView] = useState<"matches" | "report" | "tools" | null>(null);
@@ -76,7 +77,7 @@ export function FootballHistory() {
       setProgress([...state]);
       try {
         if (files[i].size > 2_000_000) throw new Error("That file is larger than 2 MB. Split it into one file per season.");
-        const report = await post<ImportReport>("football/import", { filename: files[i].name, csv: await files[i].text(), combined, dry_run: checkOnly });
+        const report = await post<ImportReport>("football/import", { filename: files[i].name, csv: await files[i].text(), combined, dry_run: checkOnly, provenance: { source_url: src.source_url || null, source_licence: src.source_licence || null, retrieved_on: src.retrieved_on || null, dataset_version: src.dataset_version || null } });
         state[i] = { name: files[i].name, state: "done", report };
       } catch (e) {
         state[i] = { name: files[i].name, state: "failed", message: e instanceof Error ? e.message : "Import failed." };
@@ -198,6 +199,16 @@ export function FootballHistory() {
           <input id="fh-files" type="file" multiple accept=".csv,.tsv,.txt,text/csv,text/plain" onChange={(e) => { setFiles(Array.from(e.target.files ?? [])); setProgress([]); }}
             className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-line file:bg-white/5 file:px-3 file:py-1.5 file:text-xs file:font-semibold" />
         </div>
+        <fieldset className="mt-3 rounded-lg border border-line p-3">
+          <legend className="px-1 text-xs font-semibold text-muted">Source details (recommended, stored with this import)</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><label htmlFor="fh-url" className="mb-1 block text-xs text-muted">Source address (URL)</label><input id="fh-url" type="url" inputMode="url" maxLength={500} value={src.source_url} onChange={(e) => setSrc({ ...src, source_url: e.target.value })} placeholder="https://" className={field} /></div>
+            <div><label htmlFor="fh-licence" className="mb-1 block text-xs text-muted">Licence or terms of use</label><input id="fh-licence" type="text" maxLength={300} value={src.source_licence} onChange={(e) => setSrc({ ...src, source_licence: e.target.value })} placeholder="For example: private, non-commercial use" className={field} /></div>
+            <div><label htmlFor="fh-retrieved" className="mb-1 block text-xs text-muted">Date you downloaded it</label><input id="fh-retrieved" type="date" max={new Date().toISOString().slice(0, 10)} value={src.retrieved_on} onChange={(e) => setSrc({ ...src, retrieved_on: e.target.value })} className={field} /></div>
+            <div><label htmlFor="fh-version" className="mb-1 block text-xs text-muted">Dataset version (if any)</label><input id="fh-version" type="text" maxLength={60} value={src.dataset_version} onChange={(e) => setSrc({ ...src, dataset_version: e.target.value })} className={field} /></div>
+          </div>
+          <p className="mt-2 text-xs text-muted">Applies to every file in this batch. VELQORIN stores what you type and does not fetch or verify it; you are responsible for having the right to use the data.</p>
+        </fieldset>
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <label className="inline-flex items-center gap-2"><input type="checkbox" checked={combined} onChange={(e) => setCombined(e.target.checked)} /> Combined file (several seasons in one file)</label>
           <label className="inline-flex items-center gap-2"><input type="checkbox" checked={checkOnly} onChange={(e) => setCheckOnly(e.target.checked)} /> Check only, do not save</label>
@@ -274,6 +285,9 @@ function ReportPanel({ tick }: { tick: number }) {
         {data.imports.map((i) => (
           <div key={i.id} className="rounded-xl border border-line p-3 text-sm">
             <p className="font-medium">{i.filename ?? "Import"} <span className="text-xs font-normal text-muted">{dt(i.created_at)}{i.created_by_name ? ` · ${i.created_by_name}` : ""}</span></p>
+            {i.report.provenance && Object.values(i.report.provenance).some(Boolean) && (
+              <p className="mt-1 break-all text-xs text-muted">Source: {i.report.provenance.source_url ?? "address not recorded"} · licence as stated: {i.report.provenance.source_licence ?? "not recorded"} · retrieved {i.report.provenance.retrieved_on ?? "date not recorded"}{i.report.provenance.dataset_version ? ` · version ${i.report.provenance.dataset_version}` : ""}</p>
+            )}
             <ReportBody r={i.report} />
           </div>
         ))}

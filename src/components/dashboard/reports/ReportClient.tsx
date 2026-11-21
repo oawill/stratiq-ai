@@ -68,10 +68,10 @@ export function ReportClient() {
         {e.data.sources.length > 0 && (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm"><caption className="sr-only">Data sources</caption>
-              <thead><tr className="text-left text-[11px] text-muted">{["Source", "Kind", "Provider", "Reference", "Added"].map((h) => <th key={h} scope="col" className="pr-3 font-normal">{h}</th>)}</tr></thead>
-              <tbody>{e.data.sources.map((s, i) => <tr key={i} className="border-t border-line"><th scope="row" className="py-1.5 pr-3 text-left font-medium">{s.name}</th><td className="pr-3">{s.kind}</td><td className="pr-3">{s.provider}</td><td className="pr-3 font-mono text-xs">{s.reference ?? "n/a"}</td><td>{dt(s.created_at)}</td></tr>)}</tbody>
+              <thead><tr className="text-left text-[11px] text-muted">{["Source", "Kind", "Source address", "Licence (as stated)", "Retrieved", "Version", "Imported"].map((h) => <th key={h} scope="col" className="pr-3 font-normal">{h}</th>)}</tr></thead>
+              <tbody>{e.data.sources.map((s, i) => <tr key={i} className="border-t border-line"><th scope="row" className="py-1.5 pr-3 text-left font-medium">{s.name}</th><td className="pr-3">{s.kind}</td><td className="pr-3 break-all text-xs">{s.source_url ?? "not recorded"}</td><td className="pr-3 text-xs">{s.source_licence ?? "not recorded"}</td><td className="pr-3 font-mono text-xs">{s.retrieved_on ?? "not recorded"}</td><td className="pr-3 text-xs">{s.dataset_version ?? "not recorded"}</td><td>{dt(s.created_at)}</td></tr>)}</tbody>
             </table>
-            <p className="mt-2 text-xs text-muted">{e.data.sources[0].licence_note}</p>
+            <p className="mt-2 text-xs text-muted">{e.data.sources[0].licence_note} Source details are as typed by the person who imported the file; the application does not fetch or verify them.</p>
           </div>
         )}
         {e.data.uploads.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted">{e.data.uploads.map((u) => <li key={u.sha256 + u.created_at}>{u.name}: {u.kind}, {u.row_count.toLocaleString()} rows, {dt(u.created_at)}</li>)}</ul>}
