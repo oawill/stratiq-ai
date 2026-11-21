@@ -330,6 +330,7 @@ test("landing page leads to a working account and every module", async ({ page }
 
   await test.step("simulation lab: run, finish, explain", async () => {
     await page.goto("/dashboard/simulations");
+    await page.getByRole("tab", { name: "Monte Carlo runs" }).click();
     await page.locator("#sim-iter").selectOption("1000");
     await page.locator("#sim-seed").fill("42");
     await expect(page.getByText(/Model is valid/)).toBeVisible();
@@ -570,6 +571,7 @@ test("bring your own data: upload, validate, and use it in Sports, SimLab, Marke
   await test.step("a series fits a distribution for a SimLab variable", async () => {
     await upload("Numeric series", "E2E demand", series);
     await page.goto("/dashboard/simulations");
+    await page.getByRole("tab", { name: "Monte Carlo runs" }).click();
     await page.getByRole("button", { name: "Fit to my data" }).first().click();
     await page.getByLabel("Dataset", { exact: true }).selectOption({ label: "E2E demand" });
     await page.getByLabel("Column").selectOption("demand");
@@ -852,6 +854,89 @@ test("football intelligence: each data type shows its own requirements, then for
 
   await test.step("a freshness banner says whether the imported data is current", async () => {
     await expect(page.getByRole("status").filter({ hasText: /Stale data|Data current/ })).toBeVisible();
+  });
+
+  await test.step("SimLab: scenario types are explained, calibrated parts are kept apart from assumptions", async () => {
+    await page.goto("/dashboard/simulations");
+    const cards = page.getByRole("list", { name: "Scenario types" });
+    for (const name of ["Sports", "Business", "Politics", "Markets"]) await expect(cards.getByText(name, { exact: true })).toBeVisible();
+    await expect(cards.getByText("Calibrated:").first()).toBeVisible();
+    await expect(cards.getByText("Hypothetical:").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open Strategy" })).toHaveAttribute("href", "/dashboard/business");
+  });
+
+  await test.step("SimLab sports simulator: a hypothetical matchup is compared with a data-calibrated baseline", async () => {
+    await page.getByRole("tab", { name: "Sports simulator" }).click();
+    await expect(page.getByRole("button", { name: "Run simulation" })).toBeDisabled();
+    await page.getByLabel("Home club").selectOption("Arsenal");
+    await page.getByLabel("Away club").selectOption("Chelsea");
+    await expect(page.getByText(/not presented as a scheduled match/)).toBeVisible();
+    await expect(page.getByText(/No assumption changed: this scenario will equal the baseline/)).toBeVisible();
+    await page.getByLabel("Scenario name").fill("Faster game, home attack out");
+    await page.getByLabel(/^Tempo/).fill("1.15");
+    await page.getByLabel(/^Home attack lost to absences/).fill("0.2");
+    await expect(page.getByText(/2 assumptions changed from neutral. Nothing about these changes has been validated/)).toBeVisible();
+    await page.getByRole("button", { name: /Add a scenario/ }).click();
+    await page.getByLabel("Scenario name").nth(1).fill("Stronger home advantage");
+    await page.getByLabel(/^Home advantage/).last().fill("1.3");
+    await page.getByRole("button", { name: "Run simulation" }).click();
+    await expect(page.getByText("Hypothetical matchup", { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/not a scheduled match/).first()).toBeVisible();
+    await expect(page.getByText(/Saved as “Arsenal v Chelsea”, version 1/)).toBeVisible();
+    await expect(page.getByText(/Baseline: calibrated from your data/)).toBeVisible();
+    await expect(page.getByText(/Faster game, home attack out: hypothetical, not a forecast/)).toBeVisible();
+    const table = page.getByRole("table", { name: /Outcome probabilities, expected goals and markets/ });
+    const rows = table.locator("tbody tr");
+    await expect(rows).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {                                          // every row's three outcomes add to 100%
+      const cells = await rows.nth(i).locator("td").evaluateAll((tds) => tds.slice(0, 3).map((t) => parseFloat(t.textContent ?? "0")));
+      expect(cells.reduce((x, y) => x + y, 0)).toBeCloseTo(100, 0);
+    }
+    await expect(page.getByRole("table", { name: /Chance of each exact score/ })).toBeVisible();
+    await expect(page.getByText("Not validated", { exact: true })).toBeVisible();
+    await expect(page.getByText("none (deterministic)")).toBeVisible();
+    await expect(page.getByRole("link", { name: "CSV" })).toHaveAttribute("href", /\/app-api\/simlab\/runs\/.+\/export\?format=csv/);
+  });
+
+  await test.step("SimLab: a changed run is saved as version 2, listed, opened and compared", async () => {
+    await page.getByLabel(/^Home attack lost to absences/).first().fill("0.35");
+    await page.getByRole("button", { name: "Run simulation" }).click();
+    await expect(page.getByText(/Saved as “Arsenal v Chelsea”, version 2/)).toBeVisible({ timeout: 60_000 });
+    await page.getByRole("tab", { name: "Saved scenarios" }).click();
+    const saved = page.getByRole("list", { name: "Saved scenarios" });
+    await expect(saved.getByText("2 versions")).toBeVisible();
+    await saved.getByRole("button", { name: "Open" }).first().click();
+    await expect(page.getByRole("heading", { name: "Arsenal v Chelsea · version 2" })).toBeVisible();
+    await page.getByRole("tab", { name: "Compare results" }).click();
+    await page.getByLabel("Simulation A").selectOption({ index: 1 });
+    await page.getByLabel("Simulation B").selectOption({ index: 2 });
+    await expect(page.getByRole("table", { name: /Home, draw and away percentages for each saved simulation/ })).toBeVisible();
+    await expect(page.getByText(/Baseline difference \(B minus A\)/)).toBeVisible();
+    await page.getByRole("tab", { name: "Saved scenarios" }).click();
+    await page.getByRole("button", { name: /Delete Arsenal v Chelsea version 2/ }).click();
+    await expect(page.getByText(/^1 version · latest/)).toBeVisible();
+  });
+
+  await test.step("SimLab business simulator: a hypothetical pricing scenario with revenue, gross profit and sensitivity", async () => {
+    await page.getByRole("tab", { name: "Business simulator" }).click();
+    await expect(page.getByText("Hypothetical: every input is your assumption")).toBeVisible();
+    await page.getByLabel("Scenario name").fill("Price cut");
+    await page.locator("#bz-sc-0-price").fill("40");
+    await page.getByRole("button", { name: "Run business simulation" }).click();
+    await expect(page.getByText(/Saved “Pricing scenario”, version 1/)).toBeVisible({ timeout: 60_000 });
+    const table = page.getByRole("table", { name: /Units, revenue and gross profit for the base case and each alternative/ });
+    await expect(table.getByRole("row", { name: /Base case/ })).toContainText("60,000");              // 10,000 x 20% x (50 - 20)
+    await expect(table.getByRole("row", { name: /Price cut/ })).toContainText("40");
+    await expect(page.getByText(/Best price in this model: 40.00/)).toBeVisible();                    // unit cost x e / (e - 1) with e = 2
+    await expect(page.getByRole("img", { name: /Revenue and gross profit at prices from half to one and a half times your price/ })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Sensitivity" }).getByRole("listitem")).toHaveCount(7);
+    await expect(page.getByText(/Nothing in this model is calibrated from data/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "CSV" })).toHaveAttribute("href", /\/app-api\/simlab\/runs\/.+\/export\?format=csv/);
+    await page.getByRole("tab", { name: "Saved scenarios" }).click();
+    await expect(page.getByText(/base-case gross profit 60,000 \(hypothetical\)/)).toBeVisible();
+    await page.getByRole("button", { name: "Open" }).first().click();
+    await expect(page.getByRole("heading", { name: "Pricing scenario · version 1" })).toBeVisible();
+    await page.getByRole("button", { name: /Delete Pricing scenario version 1/ }).click();
   });
 
   await test.step("watchlists: watch a club and see its status computed from the imported matches", async () => {

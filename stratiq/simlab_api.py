@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, StringConstraints
 
+from . import business_sim as bs
 from . import football_intel_api as fia
 from . import plans
 from . import sports_sim as ss
@@ -44,6 +45,18 @@ class SportsRunBody(BaseModel):
     away: Team
     fixture_date: date | None = None
     scenarios: list[ScenarioIn] = Field(default_factory=list, max_length=ss.MAX_SCENARIOS)
+    based_on: uuid.UUID | None = None
+
+
+class BusinessScenarioIn(BaseModel):
+    name: Name
+    overrides: dict[str, float] = Field(default_factory=dict, max_length=len(bs.INPUTS))
+
+
+class BusinessRunBody(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)] | None = None
+    inputs: dict[str, float] = Field(max_length=len(bs.INPUTS))
+    scenarios: list[BusinessScenarioIn] = Field(default_factory=list, max_length=3)
     based_on: uuid.UUID | None = None
 
 
@@ -120,7 +133,44 @@ def sports_run(body: SportsRunBody, p: Auth, conn=Depends(get_conn)):
 
 def _headline(o: dict) -> dict:
     b = o.get("baseline") or {}
-    return {"baseline_percent": b.get("percent"), "scenarios": len(o.get("scenarios") or []), "scheduled": (o.get("matchup") or {}).get("scheduled")}
+    base = o.get("base") or {}
+    return {"baseline_percent": b.get("percent"), "scenarios": len(o.get("scenarios") or []), "scheduled": (o.get("matchup") or {}).get("scheduled"),
+            "gross_profit": base.get("gross_profit"), "revenue": base.get("revenue")}
+
+
+@router.get("/business/inputs")
+def business_inputs(p: Auth):
+    return {"inputs": [{"key": k, "label": v[2], "meaning": v[3], "min": v[0], "max": v[1]} for k, v in bs.INPUTS.items()], "documentation": bs.DOCUMENTATION, "model_version": bs.SIM_VERSION}
+
+
+@router.post("/business/run", status_code=201)
+def business_run(body: BusinessRunBody, p: Auth, conn=Depends(get_conn)):
+    """A hypothetical pricing scenario: every input is the user's assumption. Stored like any other SimLab run."""
+    require_write(p)
+    plans.check_quota(conn, p.workspace_id, "scenarios")
+    _limit(conn, p)
+    try:
+        result = bs.run(body.inputs, [{"name": s.name, "overrides": s.overrides} for s in body.scenarios])
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    parent = None
+    if body.based_on:
+        parent = conn.execute("select id, scenario_key, version, domain from simlab_runs where id=%s and workspace_id=%s", (body.based_on, p.workspace_id)).fetchone()
+        if not parent or parent["domain"] != "business":
+            raise HTTPException(404, "The run to build on was not found")
+    title = body.title or "Pricing scenario"
+    key = parent["scenario_key"] if parent else uuid.uuid4()
+    version = parent["version"] + 1 if parent else 1
+    inputs = {"inputs": result["inputs"], "scenarios": [{"name": s.name, "overrides": s.overrides} for s in body.scenarios]}
+    stamp = datetime.now(timezone.utc).isoformat()
+    result["provenance"] = {**result["provenance"], "generated_at": stamp}
+    row = conn.execute(
+        """insert into simlab_runs (workspace_id, created_by, domain, title, scenario_key, version, parent_id, model_name, model_version, inputs, outputs, provenance, seed)
+           values (%s,%s,'business',%s,%s,%s,%s,'business_sim',%s,%s,%s,%s,null) returning id, created_at""",
+        (p.workspace_id, p.user_id, title, key, version, parent["id"] if parent else None, bs.SIM_VERSION, json.dumps(inputs), json.dumps(result), json.dumps(result["provenance"]))).fetchone()
+    conn.execute("insert into activity_history (workspace_id,user_id,kind,summary,ref_type,ref_id) values (%s,%s,'simlab.run',%s,'simlab_run',%s)",
+                 (p.workspace_id, p.user_id, f"Ran a business simulation: {title} (version {version})", str(row["id"])))
+    return {"id": str(row["id"]), "title": title, "scenario_key": str(key), "version": version, "parent_id": str(parent["id"]) if parent else None, "created_at": row["created_at"], **result}
 
 
 @router.get("/runs")
@@ -181,6 +231,27 @@ def sports_csv(title: str, o: dict, version: int, created_at) -> str:
     return out.getvalue()
 
 
+def business_csv(title: str, o: dict, version: int, created_at) -> str:
+    out = io.StringIO()
+    w = csv.writer(out, lineterminator="\n")
+    w.writerow(["# VELQORIN SimLab business simulation", title, f"version {version}", f"saved {created_at}"])
+    w.writerow(["# " + o["label"]])
+    w.writerow(["# model", f"business_sim@{o['provenance']['model_version']}", "random seed: none (deterministic)", "all inputs are the user's assumptions"])
+    w.writerow(["scenario", "price", "units", "revenue", "gross_profit", "gross_margin", "assumptions_changed"])
+    b = o["base"]
+    w.writerow(["Base case", b["price"], round(b["units"], 3), round(b["revenue"], 2), round(b["gross_profit"], 2), "" if b["gross_margin"] is None else round(b["gross_margin"], 4), "none"])
+    for s in o["scenarios"]:
+        w.writerow([s["name"], s["price"], round(s["units"], 3), round(s["revenue"], 2), round(s["gross_profit"], 2), "" if s["gross_margin"] is None else round(s["gross_margin"], 4),
+                    "; ".join(f"{k}={v:g}" for k, v in s["overrides"].items()) or "none"])
+    w.writerow([])
+    w.writerow(["# sensitivity: each input moved by -10% and +10% in turn"])
+    w.writerow(["input", "base_value", "gross_profit_change_at_minus_10pct", "gross_profit_change_at_plus_10pct"])
+    for r in o["sensitivity"]:
+        w.writerow([r["label"], r["base_value"], "" if not r["low"] else round(r["low"]["gross_profit_change"], 2), "" if not r["high"] else round(r["high"]["gross_profit_change"], 2)])
+    w.writerow(["# " + o["validation_status"]])
+    return out.getvalue()
+
+
 def sports_html(title: str, o: dict, version: int, created_at) -> str:
     """A self-contained page that prints cleanly (use the browser's Print, then Save as PDF)."""
     prov = o["provenance"]
@@ -206,12 +277,14 @@ def sports_html(title: str, o: dict, version: int, created_at) -> str:
 def export(run_id: uuid.UUID, p: Auth, conn=Depends(get_conn), format: Literal["csv", "html", "json"] = "csv"):
     plans.check_exports(conn, p.workspace_id)
     r = _get(conn, p, run_id)
-    if r["domain"] != "sports":
-        raise HTTPException(422, "Only sports simulations can be exported so far")
+    if r["domain"] not in ("sports", "business"):
+        raise HTTPException(422, "Only sports and business simulations can be exported so far")
     slug = re.sub(r"[^a-z0-9]+", "-", r["title"].lower()).strip("-")[:50] or "simulation"
     if format == "csv":
-        body, media = sports_csv(r["title"], r["outputs"], r["version"], r["created_at"]), "text/csv"
+        body, media = (sports_csv if r["domain"] == "sports" else business_csv)(r["title"], r["outputs"], r["version"], r["created_at"]), "text/csv"
     elif format == "html":
+        if r["domain"] != "sports":
+            raise HTTPException(422, "The printable page is available for sports simulations only; use CSV or JSON.")
         body, media = sports_html(r["title"], r["outputs"], r["version"], r["created_at"]), "text/html"
     else:
         body, media = json.dumps({"title": r["title"], "version": r["version"], "inputs": r["inputs"], "outputs": r["outputs"], "provenance": r["provenance"]}, indent=2, default=str), "application/json"
