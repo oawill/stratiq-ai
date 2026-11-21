@@ -20,7 +20,7 @@ Each slide has its own CSS-only cinematic background, headline, supporting text,
 - Touch: a horizontal swipe changes slide; vertical movement scrolls the page (`touch-action: pan-y`).
 - Previous / next buttons, pagination dots (with accessible names) and a progress bar (`role="progressbar"`).
 - Left / Right arrow keys while the carousel is on screen (ignored in form fields and with modifier keys).
-- Links such as `/#business` choose a slide on arrival and later (header menu, browser back). The slide changes the address with `history.replaceState`, so no page loads and no history entries pile up.
+- Links such as `/#business` choose a slide on arrival and later (header menu, footer, browser back). Slide links are plain anchors rather than `next/link`, because the carousel listens for the browser's `hashchange` event and a client-side push does not fire it. The slide changes the address with `history.replaceState`, so no page loads and no history entries pile up.
 - Transitions are 750 ms. Reduced motion: slide changes are instant, entry animations and illustrations are shown finished, and the transition bands are still.
 - Accessibility: `aria-roledescription="carousel"`/`"slide"`, inactive slides are `inert` and `aria-hidden`, a polite live region announces the slide, a visually hidden `<h1>` names the page.
 
@@ -57,7 +57,7 @@ The cinematic palette applies only inside `.cine` (`src/app/globals.css`): `#030
 
 ## Not done, and recommendations
 
-- The separate `/sports`, `/business`, `/politics` and `/finance` pages from the earlier site still exist (the footer links to them). If "one landing page" should mean these go away, redirect them to `/#sports` and so on and update the footer and sitemap.
+- The earlier per-domain pages `/sports`, `/business`, `/politics` and `/finance` were removed. Those URLs permanently redirect (308, in `next.config.ts`) to the matching carousel slide (`/#sports` and so on), and the footer, header menu, capabilities section and sitemap point at the slides. Their "planned capabilities" lists now live only in the slide chips and the capabilities section.
 - Swipe is tested by dispatching touch events, not on a physical phone. Check a real device (iOS Safari especially) after deploying.
-- The older home-page pieces (`sections/Hero.tsx`, `sections/Demo.tsx`, `demo/*`, `DashboardMock.tsx`, `ParticleField.tsx`) are unused; delete when convenient.
+- The older home-page pieces (old hero, demo, dashboard mock, particle field) were deleted.
 - Lighthouse was measured on the previous scroll layout (100/100/96/100); it has not been re-run for the carousel.

@@ -27,7 +27,7 @@ export function StrategySection() {
       <LazyMount className="min-h-[1810px] md:min-h-[1455px] lg:min-h-[910px]"><StrategyPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/business" className="py-3.5">Explore Strategy Simulator</ButtonLink>
-        <ButtonLink href="/business" variant="secondary" className="py-3.5">How VELQORIN Strategy works</ButtonLink>
+        <ButtonLink href="/how-it-works" variant="secondary" className="py-3.5">How VELQORIN Strategy works</ButtonLink>
         <p className="text-xs text-muted sm:ml-2">Opens the strategy application (log in required).</p>
       </div>
     </SectionShell>

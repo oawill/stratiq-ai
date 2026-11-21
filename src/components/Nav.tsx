@@ -77,9 +77,9 @@ export function Nav() {
                     className="glass absolute left-1/2 top-full mt-2 w-72 -translate-x-1/2 rounded-2xl p-2 shadow-2xl"
                   >
                     {DOMAINS.map((d) => (
-                      <Link
+                      <a
                         key={d.slug}
-                        href={`/${d.slug}`}
+                        href={`/#${d.slug}`}
                         onClick={() => setDd(false)}
                         className="flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-white/5"
                       >
@@ -88,7 +88,7 @@ export function Nav() {
                           <span className="block text-sm font-semibold">{d.name}</span>
                           <span className="block text-xs text-muted">{d.headline}</span>
                         </span>
-                      </Link>
+                      </a>
                     ))}
                   </div>
                 )}
@@ -141,15 +141,15 @@ export function Nav() {
                 {"dropdown" in item && (
                   <div className="mb-2 ml-3 grid gap-1 border-l border-line pl-3">
                     {DOMAINS.map((d) => (
-                      <Link
+                      <a
                         key={d.slug}
-                        href={`/${d.slug}`}
+                        href={`/#${d.slug}`}
                         onClick={() => setOpen(false)}
                         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted"
                       >
                         <d.icon className="h-4 w-4" style={{ color: d.accent }} aria-hidden="true" />
                         {d.name}
-                      </Link>
+                      </a>
                     ))}
                   </div>
                 )}

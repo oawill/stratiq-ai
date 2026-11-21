@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { Container, SectionHeading } from "../ui/primitives";
 import { Reveal } from "../Motion";
@@ -78,12 +77,12 @@ export function Pillars() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={`/${d.slug}`}
+                <a
+                  href={`/#${d.slug}`}
                   className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-violet transition-colors hover:text-ink"
                 >
                   {d.cta} <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                </a>
               </article>
             </Reveal>
           ))}

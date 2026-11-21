@@ -30,7 +30,7 @@ export function PoliticsSection() {
       <LazyMount className="min-h-[1960px] md:min-h-[1835px] lg:min-h-[870px]"><PoliticsPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/politics" className="py-3.5">Explore Political Intelligence</ButtonLink>
-        <ButtonLink href="/politics" variant="secondary" className="py-3.5">How VELQORIN Politics works</ButtonLink>
+        <ButtonLink href="/how-it-works" variant="secondary" className="py-3.5">How VELQORIN Politics works</ButtonLink>
         <p className="text-xs text-muted sm:ml-2">Opens the politics application (log in required).</p>
       </div>
     </SectionShell>

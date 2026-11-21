@@ -36,7 +36,7 @@ export function SportsSection() {
       <LazyMount className="min-h-[2180px] md:min-h-[1420px] lg:min-h-[925px]"><SportsPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/sports" className="py-3.5">Try Sports Intelligence</ButtonLink>
-        <ButtonLink href="/sports" variant="secondary" className="py-3.5">How VELQORIN Sports works</ButtonLink>
+        <ButtonLink href="/how-it-works" variant="secondary" className="py-3.5">How VELQORIN Sports works</ButtonLink>
         <p className="text-xs text-muted sm:ml-2">Opens the sports prediction application (log in required).</p>
       </div>
     </SectionShell>

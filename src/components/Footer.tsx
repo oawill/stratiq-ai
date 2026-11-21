@@ -21,9 +21,10 @@ export function Footer() {
           <ul className="space-y-2 text-sm text-muted">
             {DOMAINS.map((d) => (
               <li key={d.slug}>
-                <Link className="hover:text-ink" href={`/${d.slug}`}>
+                {/* A plain anchor: on the home page it changes the carousel slide through the browser's hashchange event. */}
+                <a className="hover:text-ink" href={`/#${d.slug}`}>
                   {d.name}
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

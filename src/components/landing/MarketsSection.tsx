@@ -29,7 +29,7 @@ export function MarketsSection() {
       <LazyMount className="min-h-[1880px] md:min-h-[1180px] lg:min-h-[755px]"><MarketsPanel /></LazyMount>
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
         <ButtonLink href="/dashboard/finance" className="py-3.5">Explore Market Intelligence</ButtonLink>
-        <ButtonLink href="/finance" variant="secondary" className="py-3.5">How VELQORIN Markets works</ButtonLink>
+        <ButtonLink href="/how-it-works" variant="secondary" className="py-3.5">How VELQORIN Markets works</ButtonLink>
         <p className="text-xs text-muted sm:ml-2">Opens the markets application (log in required). Not investment advice.</p>
       </div>
     </SectionShell>

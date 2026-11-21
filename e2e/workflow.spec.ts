@@ -35,7 +35,7 @@ async function expectBranded(page: Page, path: string) {
 test.describe.configure({ mode: "serial" });
 
 test("public pages, metadata and assets carry the VELQORIN brand", async ({ page, request }) => {
-  for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/sports", "/business", "/politics", "/finance", "/how-it-works", "/early-access", "/terms", "/privacy", "/no-such-page"]) {
+  for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/how-it-works", "/early-access", "/terms", "/privacy", "/no-such-page"]) {
     await expectBranded(page, path);
   }
   await page.goto("/");
@@ -151,6 +151,18 @@ test("unified landing page: one carousel of four capabilities, one header, inter
     await slide().getByRole("link", { name: "Try the election demo" }).click();
     await expect(page).toHaveURL(/#politics-demo$/);
     await expect(page.getByRole("heading", { level: 2, name: /Understand the Political Landscape/ })).toBeInViewport();
+    await page.goto("/");
+  });
+
+  await test.step("the old per-domain pages now redirect into the carousel, and footer links choose slides", async () => {
+    for (const [path, heading] of [["/sports", "Predict the Game"], ["/business", "Outthink the Competition"], ["/politics", "Understand Political Possibilities"], ["/finance", "Navigate Markets"]]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(`/#${path.slice(1)}$`));
+      await expect(slide().getByRole("heading", { level: 2 })).toContainText(heading);
+    }
+    await page.goto("/");
+    await page.getByRole("contentinfo").getByRole("link", { name: /Politic/ }).click();
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Understand Political Possibilities");
     await page.goto("/");
   });
 
