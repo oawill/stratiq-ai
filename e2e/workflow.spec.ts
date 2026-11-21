@@ -77,30 +77,85 @@ test("anonymous visitors cannot reach the application or its API", async ({ page
   expect([400, 503]).toContain((await request.post("/api/stripe/webhook", { data: "{}" })).status());
 });
 
-test("cinematic landing page: navigation, five sections, interactive demonstrations and conversion sections", async ({ page, browser }) => {
+test("unified landing page: one carousel of four capabilities, one header, interactive demonstrations and conversion sections", async ({ page, browser }) => {
   test.setTimeout(240_000);
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Primary" });
 
-  await test.step("navigation shows the five sections and tracks the active one", async () => {
-    for (const label of ["Home", "Sports", "Strategy", "Politics", "Markets", "Pricing"]) await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Home", exact: true })).toHaveAttribute("aria-current", "location");
-    await expect(page.getByRole("link", { name: "Get Early Access" }).first()).toHaveAttribute("href", "/early-access");
-    await nav.getByRole("link", { name: "Strategy", exact: true }).click();
-    await expect(page).toHaveURL(/#strategy$/);
-    await expect(page.getByRole("heading", { level: 2, name: /Think Several Moves Ahead/ })).toBeInViewport();
-    await expect(nav.getByRole("link", { name: "Strategy", exact: true })).toHaveAttribute("aria-current", "location");
+  const slide = () => page.locator('[role="group"][aria-roledescription="slide"]:not([aria-hidden="true"])');
+  const dot = (n: number) => page.getByRole("button", { name: new RegExp(`^Go to slide ${n}:`) });
+
+  await test.step("one header: Platform, Solutions, How It Works, Pricing, Get Started, with no second menu", async () => {
+    await expect(page.getByRole("banner").getByRole("navigation")).toHaveCount(1);
+    for (const label of ["Platform", "How It Works", "Pricing"]) await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Solutions" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "Get Started" })).toHaveAttribute("href", "/signup");
   });
 
-  await test.step("hero modules scroll to their sections", async () => {
+  await test.step("the carousel starts on Sports and its slides respond to buttons, dots and arrow keys", async () => {
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("VELQORIN");
+    await expect(slide()).toHaveCount(1);
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Predict the Game");
+    await expect(page.getByRole("progressbar", { name: "Slide progress" })).toHaveAttribute("aria-valuenow", "1");
+    await expect(page.getByRole("button", { name: "Previous slide" })).toBeDisabled();
+    await page.getByRole("button", { name: "Next slide" }).click();
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Outthink the Competition");
+    await expect(page).toHaveURL(/#business$/);
+    await expect(dot(2)).toHaveAttribute("aria-current", "true");
+    await page.keyboard.press("ArrowRight");
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Understand Political Possibilities");
+    await page.keyboard.press("ArrowLeft");
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Outthink the Competition");
+    await dot(4).click();
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Navigate Markets");
+    await expect(page.getByRole("button", { name: "Next slide" })).toBeDisabled();
+    await expect(page.getByRole("progressbar", { name: "Slide progress" })).toHaveAttribute("aria-valuenow", "4");
+  });
+
+  await test.step("the mouse wheel moves one slide per gesture, then hands the page back its scrolling", async () => {
     await page.goto("/");
+    await page.mouse.move(600, 400);
+    for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 100); await page.waitForTimeout(60); }
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Outthink the Competition"); // six quick notches = one slide
+    expect(await page.evaluate(() => scrollY)).toBe(0);
+    await page.waitForTimeout(1100);
+    await page.mouse.wheel(0, 100);
+    await page.waitForTimeout(1100);
+    await page.mouse.wheel(0, 100);
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Navigate Markets");
+    await page.waitForTimeout(1100);
+    await page.mouse.wheel(0, 400); // last slide: the page itself scrolls
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
+    await page.mouse.wheel(0, -2000);
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Navigate Markets");
+  });
+
+  await test.step("Solutions menu and hash links move to a slide without reloading the page", async () => {
+    await page.goto("/");
+    await page.evaluate(() => { (window as unknown as { __kept: boolean }).__kept = true; });
+    await nav.getByRole("button", { name: "Solutions" }).click();
     await page.getByRole("link", { name: "Political Intelligence", exact: true }).click();
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Understand Political Possibilities");
     await expect(page).toHaveURL(/#politics$/);
+    expect(await page.evaluate(() => (window as unknown as { __kept?: boolean }).__kept)).toBe(true); // same document: no reload
+    await page.goto("/#finance");
+    await expect(slide().getByRole("heading", { level: 2 })).toContainText("Navigate Markets");
+    await nav.getByRole("link", { name: "Pricing", exact: true }).click();
+    await expect(page.locator("#pricing")).toBeInViewport();
+    await expect(nav.getByRole("link", { name: "Pricing", exact: true })).toHaveAttribute("aria-current", "location");
+  });
+
+  await test.step("each slide's call to action opens its interactive demonstration on the same page", async () => {
+    await page.goto("/#politics");
+    await slide().getByRole("link", { name: "Try the election demo" }).click();
+    await expect(page).toHaveURL(/#politics-demo$/);
     await expect(page.getByRole("heading", { level: 2, name: /Understand the Political Landscape/ })).toBeInViewport();
+    await page.goto("/");
   });
 
   await test.step("sports: probabilities sum to one and respond to the scenario", async () => {
-    const sports = page.locator("#sports");
+    const sports = page.locator("#sports-demo");
     await sports.scrollIntoViewIfNeeded();
     await expect(sports.getByText("Fictional teams · simulated demonstration data · not a real prediction")).toBeVisible();
     await expect(sports.getByText("Demonstration fixtures")).toBeVisible();
@@ -118,7 +173,7 @@ test("cinematic landing page: navigation, five sections, interactive demonstrati
   });
 
   await test.step("strategy: the scenario changes the matrix and the equilibrium analysis", async () => {
-    const strategy = page.locator("#strategy");
+    const strategy = page.locator("#strategy-demo");
     await strategy.scrollIntoViewIfNeeded();
     await expect(strategy.getByRole("status")).toContainText("our best reply is");
     await expect(strategy.getByText("NE", { exact: true }).first()).toBeVisible();
@@ -130,7 +185,7 @@ test("cinematic landing page: navigation, five sections, interactive demonstrati
   });
 
   await test.step("politics: hypothetical scenarios are labelled and kept apart from the forecast", async () => {
-    const politics = page.locator("#politics");
+    const politics = page.locator("#politics-demo");
     await politics.scrollIntoViewIfNeeded();
     await expect(politics.getByText("Fictional country · simulated data · nonpartisan illustration")).toBeVisible();
     await expect(politics.getByText("Fictional previous election").first()).toBeVisible();
@@ -148,7 +203,7 @@ test("cinematic landing page: navigation, five sections, interactive demonstrati
   });
 
   await test.step("markets: the scenario drives the risk analysis and nothing is promised", async () => {
-    const markets = page.locator("#markets");
+    const markets = page.locator("#markets-demo");
     await markets.scrollIntoViewIfNeeded();
     await expect(markets.getByText("Simulated prices and assumptions · not market data · not investment advice")).toBeVisible();
     const loss = async () => parseInt(((await markets.locator("dt", { hasText: "Chance of loss" }).locator("xpath=following-sibling::dd").textContent()) ?? "0").replace("%", ""));
@@ -173,23 +228,39 @@ test("cinematic landing page: navigation, five sections, interactive demonstrati
     await expect(page.getByRole("contentinfo")).toContainText("not financial, legal, or betting");
   });
 
-  await test.step("phones get a menu, stacked modules and no sideways scrolling", async () => {
-    const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true });
+  await test.step("phones get a swipeable carousel with readable text, a menu and no sideways scrolling", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
     const m = await ctx.newPage();
     await m.goto("/");
-    await expect(m.getByRole("link", { name: "Sports Intelligence", exact: true })).toBeVisible();
+    const heading = m.locator('[role="group"][aria-roledescription="slide"]:not([aria-hidden="true"]) h2');
+    await expect(heading).toContainText("Predict the Game");
+    await expect(m.getByRole("link", { name: "Try the match demo" })).toBeInViewport();
+    await expect(m.getByRole("link", { name: "Get Started" }).last()).toBeInViewport();
     expect(await m.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    // A horizontal swipe changes the slide; touch events are dispatched on the carousel itself.
+    const swipe = (dx: number) => m.locator("#solutions").evaluate((el, d) => {
+      const touch = (x: number) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 300 });
+      el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [touch(200)], changedTouches: [touch(200)] }));
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], changedTouches: [touch(200 + d)] }));
+    }, dx);
+    await swipe(-120);
+    await expect(heading).toContainText("Outthink the Competition");
+    await swipe(120);
+    await expect(heading).toContainText("Predict the Game");
     await m.getByRole("button", { name: "Open menu" }).click();
-    await m.getByRole("navigation", { name: "Mobile" }).getByRole("link", { name: "Markets" }).click();
-    await expect(m).toHaveURL(/#markets$/);
+    await m.getByRole("navigation", { name: "Mobile" }).getByRole("link", { name: "Financial Intelligence" }).click();
+    await expect(m).toHaveURL(/#finance$/);
+    await expect(heading).toContainText("Navigate Markets");
     await expect(m.locator("#landing-menu")).toHaveCount(0);
     await ctx.close();
   });
 
-  await test.step("reduced motion shows the transition bands still", async () => {
+  await test.step("reduced motion: the carousel still works and the transition bands are shown still", async () => {
     const ctx = await browser.newContext({ reducedMotion: "reduce" });
     const r = await ctx.newPage();
     await r.goto("/");
+    await r.getByRole("button", { name: "Next slide" }).click();
+    await expect(r.locator('[role="group"][aria-roledescription="slide"]:not([aria-hidden="true"]) h2')).toContainText("Outthink the Competition"); // still navigable, just not animated
     await expect(r.locator("[data-transition]").first()).toBeAttached();
     await expect.poll(() => r.locator("[data-transition]").first().locator("svg").evaluateAll((els) => els.map((e) => (e as SVGElement).style.opacity))).toEqual(["0.5", "0.5"]);
     await ctx.close();
@@ -199,12 +270,8 @@ test("cinematic landing page: navigation, five sections, interactive demonstrati
 test("landing page leads to a working account and every module", async ({ page }) => {
   await test.step("landing page", async () => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("From Data to Strategic Advantage");
-    await expect(page.getByRole("link", { name: "Explore the Platform", exact: true })).toHaveAttribute("href", "#sports");
-    await page.getByRole("link", { name: "See How It Works" }).first().click();
-    await expect(page).toHaveURL(/\/how-it-works/);
-    await page.goto("/");
-    await page.getByRole("link", { name: "Log In" }).first().click();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("VELQORIN");
+    await page.goto("/login");
     await expect(page).toHaveURL(/\/login/);
     await page.getByRole("link", { name: "Create one" }).click();
   });

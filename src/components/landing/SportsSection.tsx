@@ -30,7 +30,7 @@ function Stadium() {
 
 export function SportsSection() {
   return (
-    <SectionShell id="sports" index="02" eyebrow="Sports" accent="#00E5FF" title={<>Predict Beyond the <span className="text-gradient">Score</span></>}
+    <SectionShell id="sports-demo" index="01" eyebrow="Sports" accent="#00E5FF" title={<>Predict Beyond the <span className="text-gradient">Score</span></>}
       sub="Match probabilities, expected goals, form and team strength, with the uncertainty shown rather than hidden." background={<Stadium />}>
       <div className="mb-5"><DemoBadge>Fictional teams · simulated demonstration data · not a real prediction</DemoBadge></div>
       <LazyMount className="min-h-[2180px] md:min-h-[1420px] lg:min-h-[925px]"><SportsPanel /></LazyMount>

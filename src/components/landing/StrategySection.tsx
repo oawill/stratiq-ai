@@ -21,7 +21,7 @@ function Board() {
 
 export function StrategySection() {
   return (
-    <SectionShell id="strategy" index="03" eyebrow="Strategy" accent="#8B5CF6" title={<>Think Several <span className="text-gradient">Moves Ahead</span></>}
+    <SectionShell id="strategy-demo" index="02" eyebrow="Strategy" accent="#8B5CF6" title={<>Think Several <span className="text-gradient">Moves Ahead</span></>}
       sub="Game Theory for Real-World Decisions: model how a competitor responds before you commit, and see where each side has no reason to move." background={<Board />}>
       <div className="mb-5"><DemoBadge>Illustrative assumptions · not a forecast of any real market</DemoBadge></div>
       <LazyMount className="min-h-[1810px] md:min-h-[1455px] lg:min-h-[910px]"><StrategyPanel /></LazyMount>

@@ -23,7 +23,7 @@ function Terminal() {
 
 export function MarketsSection() {
   return (
-    <SectionShell id="markets" index="05" eyebrow="Markets" accent="#34D399" title={<>Navigate <span className="text-gradient">Uncertainty</span></>}
+    <SectionShell id="markets-demo" index="04" eyebrow="Markets" accent="#34D399" title={<>Navigate <span className="text-gradient">Uncertainty</span></>}
       sub="Market Forecasting & Risk Intelligence: see the range of outcomes under explicit assumptions, not a single number promised as a return." background={<Terminal />}>
       <div className="mb-5"><DemoBadge>Simulated prices and assumptions · not market data · not investment advice</DemoBadge></div>
       <LazyMount className="min-h-[1880px] md:min-h-[1180px] lg:min-h-[755px]"><MarketsPanel /></LazyMount>

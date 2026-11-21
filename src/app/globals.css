@@ -202,3 +202,8 @@ html:has(.cine) body {
     min-height: 0;
   }
 }
+
+/* Anchor links (including the carousel's own slides) stop below the fixed header. */
+.cine [id] {
+  scroll-margin-top: 4rem;
+}

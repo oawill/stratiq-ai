@@ -24,7 +24,7 @@ function Contours() {
 
 export function PoliticsSection() {
   return (
-    <SectionShell id="politics" index="04" eyebrow="Politics" accent="#60A5FA" title={<>Understand the Political <span className="text-gradient">Landscape</span></>}
+    <SectionShell id="politics-demo" index="03" eyebrow="Politics" accent="#60A5FA" title={<>Understand the Political <span className="text-gradient">Landscape</span></>}
       sub="Election Forecasting & Scenario Intelligence: explore turnout, regional swings and coalitions, with forecasts, hypotheticals and historical facts kept apart. Transparent and nonpartisan." background={<Contours />}>
       <div className="mb-5"><DemoBadge>Fictional country · simulated data · nonpartisan illustration</DemoBadge></div>
       <LazyMount className="min-h-[1960px] md:min-h-[1835px] lg:min-h-[870px]"><PoliticsPanel /></LazyMount>

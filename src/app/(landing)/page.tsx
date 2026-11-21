@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
-import { IntelligenceHero } from "@/components/landing/IntelligenceHero";
+import { HeroCarousel } from "@/components/carousel/HeroCarousel";
 import { SportsSection } from "@/components/landing/SportsSection";
 import { StrategySection } from "@/components/landing/StrategySection";
 import { PoliticsSection } from "@/components/landing/PoliticsSection";
@@ -19,13 +19,13 @@ export const metadata: Metadata = {
 };
 
 /**
- * One continuous page: five cinematic sections joined by transition bands, then the trust and conversion sections
+ * One page: a full-screen carousel of the four capabilities, then the interactive demonstrations joined by transition bands, then the trust and conversion sections
  * (workflow, how it works, capabilities, methodology and performance disclosures, pricing, early access).
  */
 export default function Home() {
   return (
     <>
-      <IntelligenceHero />
+      <HeroCarousel />
       <SectionTransition kind="home-sports" />
       <SportsSection />
       <SectionTransition kind="sports-strategy" />

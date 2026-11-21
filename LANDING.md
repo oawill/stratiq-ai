@@ -1,74 +1,63 @@
-# Cinematic landing page
+# Home page: one carousel, then the demonstrations
 
-The home page (`/`) is one continuous scroll through five sections (Home, Sports, Strategy, Politics, Markets), then the trust and conversion sections. It is an enhancement: every route, API, model, sign-in and billing flow is unchanged.
+The home page (`/`) is a single page. A full-screen carousel presents the four intelligence capabilities as slides; below it the same page continues with an interactive demonstration for each capability, then the trust and conversion sections. It is an enhancement: every route, API, model, sign-in and billing flow is unchanged.
 
-## What is on the page
+## The carousel
 
-| Order | Section | What it contains |
+| Slide | URL hash | Copy comes from |
 |---|---|---|
-| 1 | **Home** (`#home`) | "From Data to Strategic Advantage", two calls to action, a rotating globe of data nodes with four module cards (Sports, Strategy, Political, Market Intelligence) that scroll to their sections |
-| 2 | **Sports** (`#sports`) | Fictional fixtures: win/draw/loss probabilities with an uncertainty band, expected goals, a scoreline grid, form, team-strength bars, an illustrative pitch heatmap, four example scenarios, free choice of any two teams |
-| 3 | **Strategy** (`#strategy`) | Four business scenarios drive a payoff matrix (pure Nash equilibria and best replies marked), a leader-first decision tree, an outcome chart and a sensitivity table |
-| 4 | **Politics** (`#politics`) | A fictional country with a keyboard-operable map; turnout, regional swing and coalition assumptions; seats with simulated ranges; forecast, hypothetical and fictional-history clearly separated |
-| 5 | **Markets** (`#markets`) | A simulated candlestick series with regime strip and volatility, risk distribution, fan chart, bull/base/bear comparison, stress tests, controlled by scenario, risk tolerance and horizon |
-| | Transition bands | Between sections an SVG band crossfades one section's motif into the next (network to pitch, grid to board, tree to map, map to chart) |
-| | Workflow, How it works, Capabilities, Methodology and performance disclosures (`#performance`), Pricing (`#pricing`), Early access (`#early-access`), Footer | The existing sections, kept intact, plus a four-step Data, Analysis, Simulation, Decision intelligence strip |
+| 1 Sports Intelligence | `#sports` | `DOMAINS` in `src/lib/site.ts` |
+| 2 Business Strategy | `#business` | same |
+| 3 Political Intelligence | `#politics` | same |
+| 4 Financial Intelligence | `#finance` | same |
 
-## Honesty rules the page follows
+Each slide has its own CSS-only cinematic background, headline, supporting text, three capability chips, an animated SVG illustration (labelled "Illustration only · not real data"), a call to action that jumps to the matching demonstration further down the same page, and a "Get Started" link.
 
-- Every demonstration carries a visible badge (for example "Fictional teams · simulated demonstration data · not a real prediction"). Teams, parties, regions, prices and returns are invented; the crests are placeholders.
-- No live fixtures, results, market data or model performance are shown or implied. The Sports panel says it says nothing about the accuracy of the VELQORIN models.
-- Politics is a neutral, fictional country with neutral party labels. Forecast, hypothetical and historical content are tagged separately; the page states that a fictional country has no election history.
-- Markets never shows a return as an outcome to expect. Results are ranges under stated assumptions, and the text says "scenarios, not predictions or guaranteed returns".
-- The math is on screen next to each demo and is tested (below).
+**Controls**
 
-## Where the logic lives
+- Mouse wheel / trackpad: one deliberate gesture moves one slide. Wheel events are ignored while a transition runs (900 ms lock) and while the decaying tail of a trackpad's momentum arrives, so a flick cannot skip slides.
+- After the last slide, a downward wheel scrolls the page normally. Scrolling back to the very top and wheeling up returns to slide 4. The carousel only owns the wheel when the page is at the top.
+- Touch: a horizontal swipe changes slide; vertical movement scrolls the page (`touch-action: pan-y`).
+- Previous / next buttons, pagination dots (with accessible names) and a progress bar (`role="progressbar"`).
+- Left / Right arrow keys while the carousel is on screen (ignored in form fields and with modifier keys).
+- Links such as `/#business` choose a slide on arrival and later (header menu, browser back). The slide changes the address with `history.replaceState`, so no page loads and no history entries pile up.
+- Transitions are 750 ms. Reduced motion: slide changes are instant, entry animations and illustrations are shown finished, and the transition bands are still.
+- Accessibility: `aria-roledescription="carousel"`/`"slide"`, inactive slides are `inert` and `aria-hidden`, a polite live region announces the slide, a visually hidden `<h1>` names the page.
 
-Presentation is separate from logic. Pure, seeded, deterministic functions are in `src/lib/landing/` and have 33 unit tests (`landing.test.ts`):
+**Header** (one only): VELQORIN | Platform | Solutions | How It Works | Pricing | Get Started. Platform, How It Works and Pricing scroll to the section on the page; Solutions opens a menu of the four slides; Get Started goes to `/signup`. On phones the same items are in one menu.
 
-| File | Logic | Reuses |
-|---|---|---|
-| `football.ts` | expected goals, Poisson probabilities, uncertainty range (each side's expected goals moved 15%), scenarios, strength index, pitch heat | `lib/poisson.ts` |
-| `strategy.ts` | profits, payoff matrix, equilibria, best replies, decision tree, sensitivity | `lib/game.ts` (same demand model as the Strategy simulator) |
-| `politics.ts` | vote adjustment (swing, turnout elasticity), D'Hondt seats, 400-run seeded uncertainty, coalition majority probability | |
-| `markets.ts` | lognormal portfolio value, quantiles, loss probability, expected shortfall, fan, stress tests, seeded candles, regimes | |
-| `stats.ts` | seeded generator, normal CDF and inverse | |
+## Where things live
 
-The tests check internal consistency rather than just running the code: probabilities sum to one; the strategy equilibria match a brute-force search; the strategy model equals the existing simulator exactly; lognormal quantiles round-trip; the expected-shortfall formula matches a 200,000-draw simulation; D'Hondt hands out exactly the seats; the same seed always gives the same result.
+| Path | What |
+|---|---|
+| `src/components/carousel/slides.ts` | Slide data (merged from `DOMAINS` plus per-slide style, background, demo link). Edit this to change the slides. |
+| `src/components/carousel/HeroCarousel.tsx` | The carousel component and its wiring (wheel, keys, touch, hash). |
+| `src/components/carousel/input.ts` | Pure input rules (wheel lock and momentum handling, swipe, clamping) with unit tests in `input.test.ts`. |
+| `src/components/carousel/CarouselVisuals.tsx` | The four animated SVG illustrations. |
+| `src/components/landing/LandingNavigation.tsx` | The header. |
+| `src/app/(landing)/` | Layout (`.cine` theme, header, footer) and the page. |
 
-Components: `src/components/landing/` (navigation, hero, section shells, panels, transitions, progress) and `src/components/visualizations/` (globe, probability chart, pitch, scoreline grid, payoff matrix, decision tree, outcome chart, election map, seat chart, market chart, risk distribution and fan).
+## Demonstrations below the carousel
+
+Sports (`#sports-demo`), Strategy (`#strategy-demo`), Politics (`#politics-demo`) and Markets (`#markets-demo`) are unchanged from the previous version: interactive, deterministic, clearly labelled as fictional or simulated, and tested (`src/lib/landing/landing.test.ts`). Then: workflow strip, How it works (`#how`), capabilities (`#intelligence`), methodology and performance disclosures (`#performance`), pricing (`#pricing`) and early access (`#early-access`).
+
+## Honesty rules
+
+- Carousel illustrations show no figures and are labelled as illustrations. Demonstrations use fictional teams, parties, regions and prices and say so.
+- No live fixtures, results, market data or model performance are shown or implied. Markets text says "scenarios, not predictions or guaranteed returns".
 
 ## Design system
 
-The cinematic palette applies only inside `.cine` (`src/app/globals.css`): background `#030B1C`, secondary `#07152B`, electric cyan `#00E5FF`, intelligence blue `#2563EB`, strategic violet `#8B5CF6`, text `#F8FAFC`, muted `#94A3B8`. The existing landing sections read the same CSS variables, so they take the theme without edits, and the dashboard keeps its own palette. Button fills use violet-600 (`#7C3AED`) so white text meets 4.5:1 contrast; the brand violet is used for accents.
-
-The brand is written **VELQORIN**. velqorin.ai is the website address, as decided earlier (and enforced by an e2e check); the page does not use "VELQORIN.ai" as a name.
-
-## Motion and performance
-
-- Hero text appears with CSS only, so the largest paint never waits for JavaScript.
-- Section panels mount only when the visitor scrolls near them (`LazyMount`) and are code-split; each placeholder is sized to the measured panel height at phone, tablet and desktop widths to avoid layout shift.
-- The globe pauses when off screen or in a background tab, draws one still frame for reduced motion, and cleans up on unmount. No 3D engine, no video, no images.
-- Reduced motion: transition bands and the hero parallax are shown still. The preference is read with `useSyncExternalStore` so server-rendered styles are corrected right after hydration.
-- Navigation highlights the section crossing the middle of the viewport (one IntersectionObserver) and clears when none does. Smooth scrolling is CSS (`scroll-behavior`), with no scroll snapping or scroll trapping.
-
-## Measured results (production build, Lighthouse 13, local)
-
-| | Performance | Accessibility | Best practices | SEO | LCP | CLS | TBT |
-|---|---|---|---|---|---|---|---|
-| Desktop | 100 | 100 | 96 | 100 | 0.2 s | 0 | 0 ms |
-| Mobile (simulated throttling) | 100 | 100 | 96 | 100 | 0.9 s | 0 | 30 ms |
-
-The 4 points off Best practices are a console 404 for `/_vercel/insights/script.js`, which only exists when deployed on Vercel. These are lab numbers on one machine against `localhost`, not field data.
+The cinematic palette applies only inside `.cine` (`src/app/globals.css`): `#030B1C`, `#07152B`, cyan `#00E5FF`, blue `#2563EB`, violet `#8B5CF6`, text `#F8FAFC`, muted `#94A3B8`. Button fills use violet-600 so white text meets 4.5:1. Brand is written **VELQORIN**; velqorin.ai is the web address.
 
 ## Tests
 
-- `npm run test` (vitest): 48 tests, 33 of them for the landing logic.
-- e2e (`e2e/workflow.spec.ts`): "cinematic landing page" covers navigation and active highlighting, the hero module links, every demo (probabilities sum to 100, scenarios change results, the map works from the keyboard, bear is riskier than bull), the conversion sections, the phone menu and no sideways scrolling at 375 px, and reduced motion. The phone test also checks `/`.
+- `npm run test` (vitest): 58 tests, including the carousel input rules (rapid wheel = one slide, momentum tail ignored, pass-through after the last slide, swipe direction) and the slide list.
+- e2e `unified landing page...`: one header, buttons/dots/keys/progress, wheel (six quick notches = one slide; page scrolls after the last slide and the carousel returns when scrolling back to the top), Solutions menu and hash links without a reload (a marker on `window` survives), slide CTA to demo, all four demonstrations, trust/pricing sections, phone (swipe, menu, no sideways scroll) and reduced motion.
 
 ## Not done, and recommendations
 
-- **Real application screenshots** were not added: the app's data in development is fictional, and a screenshot would blur the line between a demonstration and the product. Add them once there is real, licensed content to show.
-- The old home-page pieces (`sections/Hero.tsx`, `sections/Demo.tsx`, `demo/*`, `DashboardMock.tsx`, `ParticleField.tsx`) are no longer used on the home page. They were left untouched; delete them when convenient.
-- The globe's four module nodes are fixed positions; there is no per-node tooltip.
-- Field Core Web Vitals can only be measured after deployment.
+- The separate `/sports`, `/business`, `/politics` and `/finance` pages from the earlier site still exist (the footer links to them). If "one landing page" should mean these go away, redirect them to `/#sports` and so on and update the footer and sitemap.
+- Swipe is tested by dispatching touch events, not on a physical phone. Check a real device (iOS Safari especially) after deploying.
+- The older home-page pieces (`sections/Hero.tsx`, `sections/Demo.tsx`, `demo/*`, `DashboardMock.tsx`, `ParticleField.tsx`) are unused; delete when convenient.
+- Lighthouse was measured on the previous scroll layout (100/100/96/100); it has not been re-run for the carousel.
