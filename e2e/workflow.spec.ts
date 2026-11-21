@@ -977,6 +977,65 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page.getByText(/Educational scenario analysis/).first()).toBeVisible();
   });
 
+  await test.step("AI Analyst: a grounded sports answer with citations, then a follow-up that remembers the clubs", async () => {
+    await page.goto("/dashboard");
+    await page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "AI Analyst" }).click();
+    await expect(page.getByRole("heading", { name: "AI Analyst" })).toBeVisible();
+    await expect(page.getByText("Built-in rules over your records").first()).toBeVisible();
+    await expect(page.getByRole("list", { name: "Suggested questions" }).getByRole("button").first()).toBeVisible();
+    await page.getByLabel("Ask the Analyst").fill("Why is Arsenal favoured over Chelsea?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    const answer = page.getByRole("article", { name: "Analyst answer" }).last();
+    await expect(answer.getByText(/Model forecast for Arsenal v Chelsea/)).toBeVisible({ timeout: 60_000 });
+    await expect(answer.getByText(/not a measure of how accurate the model is/)).toBeVisible();
+    await expect(answer.getByRole("list", { name: /model probabilities/ })).toBeVisible();
+    await answer.getByText("Sources and how this answer was made").click();
+    await expect(answer.getByRole("list", { name: "Sources" }).getByText(/Model version: live/)).toBeVisible();
+    await expect(answer.getByText("Key assumptions")).toBeVisible();
+    await expect(answer.getByText("Known limitations")).toBeVisible();
+    await expect(answer.getByText(/Records retrieved: fixture details|Records retrieved: fixture_details/)).toBeVisible();
+    await expect(page.getByRole("list", { name: "Saved conversations" }).getByRole("button", { name: "Why is Arsenal favoured over Chelsea?", exact: true })).toBeVisible();
+
+    await page.getByLabel("Ask the Analyst").fill("How have they done at home?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.getByText(/from earlier in this conversation/).last()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/^At home,/).last()).toBeVisible();
+  });
+
+  await test.step("AI Analyst: honest about what it cannot know, and about the model's record", async () => {
+    await page.getByLabel("Ask the Analyst").fill("Does Arsenal have any injuries or what are the odds?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.getByText(/I do not have data on:/).last()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/no live feed is connected/).last()).toBeVisible();
+    await page.getByLabel("Ask the Analyst").fill("How well has the model performed historically?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.getByText(/walk-forward backtest/).last()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/not a promise about future accuracy/).last()).toBeVisible();
+    await expect(page.getByRole("table", { name: /Test-period results/ }).last()).toBeVisible();
+  });
+
+  await test.step("AI Analyst: saved simulations are explained, and scenarios are only suggested", async () => {
+    await page.getByLabel("Ask the Analyst").fill("Suggest scenarios to try for my simulations");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.getByText(/I have no saved sports simulation|I have not run any of them/).last()).toBeVisible({ timeout: 60_000 });
+    await page.getByLabel("Ask the Analyst").fill("Explain my latest simulation");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.getByRole("article", { name: "Analyst answer" }).last().getByText(/hypothetical|saved (politics|markets) scenario|No saved SimLab/i).first()).toBeVisible({ timeout: 60_000 });
+  });
+
+  await test.step("AI Analyst: history, export and deletion are in the user's hands", async () => {
+    const exportLink = page.getByRole("link", { name: /Export sourced summary/ });
+    await expect(exportLink.last()).toHaveAttribute("href", /\/app-api\/analyst\/conversations\/.+\/export\?format=md/);
+    await page.getByRole("button", { name: /^Delete conversation/ }).first().click();
+    await expect(page.getByText("No saved conversations yet.")).toBeVisible();
+    await page.getByRole("button", { name: "New conversation" }).click();
+    await page.getByLabel("Don't save this conversation").check();
+    await page.getByLabel("Ask the Analyst").fill("How fresh is my data?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.getByRole("article", { name: "Analyst answer" }).last().getByText(/newest stored result/).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText("No saved conversations yet.")).toBeVisible();                           // nothing was kept
+  });
+
   await test.step("watchlists: watch a club and see its status computed from the imported matches", async () => {
     await page.goto("/dashboard/watchlists");
     await expect(page.getByRole("heading", { name: "Watchlists" })).toBeVisible();
@@ -1020,7 +1079,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
-  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/reports"]) {
+  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/reports", "/dashboard/analyst"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const { overflow, culprits } = await page.evaluate(() => {

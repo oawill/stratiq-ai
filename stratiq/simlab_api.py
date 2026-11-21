@@ -17,7 +17,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from . import business_sim as bs
 from . import football_intel_api as fia
@@ -34,9 +34,19 @@ Team = Annotated[str, StringConstraints(min_length=1, max_length=60)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
 
 
+_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _no_control(v):
+    """Titles and names are free text: control characters (a NUL byte would be rejected by the database) are removed rather than stored."""
+    return _CTRL.sub("", v) if isinstance(v, str) else v
+
+
 class ScenarioIn(BaseModel):
     name: Name
     adjustments: dict[str, float] = Field(default_factory=dict, max_length=len(ss.ADJUSTMENTS))
+
+    _clean_name = field_validator("name", mode="before")(lambda cls, v: _no_control(v))
 
 
 class SportsRunBody(BaseModel):
@@ -47,10 +57,14 @@ class SportsRunBody(BaseModel):
     scenarios: list[ScenarioIn] = Field(default_factory=list, max_length=ss.MAX_SCENARIOS)
     based_on: uuid.UUID | None = None
 
+    _clean_title = field_validator("title", mode="before")(lambda cls, v: _no_control(v))
+
 
 class BusinessScenarioIn(BaseModel):
     name: Name
     overrides: dict[str, float] = Field(default_factory=dict, max_length=len(bs.INPUTS))
+
+    _clean_name = field_validator("name", mode="before")(lambda cls, v: _no_control(v))
 
 
 class BusinessRunBody(BaseModel):
@@ -58,6 +72,8 @@ class BusinessRunBody(BaseModel):
     inputs: dict[str, float] = Field(max_length=len(bs.INPUTS))
     scenarios: list[BusinessScenarioIn] = Field(default_factory=list, max_length=3)
     based_on: uuid.UUID | None = None
+
+    _clean_title = field_validator("title", mode="before")(lambda cls, v: _no_control(v))
 
 
 def _today() -> date:
