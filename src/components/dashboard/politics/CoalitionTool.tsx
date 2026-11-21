@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Loader2, Plus, X } from "lucide-react";
-import { post } from "@/lib/client";
+import { call, post } from "@/lib/client";
+import { DatasetPicker } from "../data/shared";
 import type { PolAllocate, PolCoalition, PolSimulation } from "@/lib/types";
 import { Badge, ErrorPanel, Panel } from "../ui";
 import { SaveBar, field, num, pc, useAnalysis } from "./shared";
@@ -136,6 +137,7 @@ export function CoalitionTool({ d, set, adv, onSaved }: { d: CoalitionDraft; set
   return (
     <div className="space-y-4">
       <Panel title="1 · Parties and seats" badge={<span className="text-xs text-muted">illustrative starting values</span>}>
+        <div className="mb-3"><DatasetPicker id="pol-dataset" kind="political_seats" label="Or use a dataset you uploaded" onPick={async (ds) => { const r = await call<{ data: { parties: { name: string; seats: number; position?: number }[] } }>(`data/datasets/${ds.id}/data`); set({ ...d, parties: r.data.parties.map((p) => ({ name: p.name, seats: String(p.seats), position: p.position === undefined ? "" : String(p.position), votes: "" })), totalSeats: String(r.data.parties.reduce((a, p) => a + p.seats, 0)) }); }} /></div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-sm">
             <caption className="sr-only">Parties</caption>

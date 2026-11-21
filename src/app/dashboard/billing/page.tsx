@@ -11,8 +11,8 @@ interface PlanInfo {
   plan: string;
   name: string;
   enforced: boolean;
-  limits: { predictions: number | null; scenarios: number | null; runs: number | null; iterations: number; exports: boolean; seats: number };
-  usage: { predictions: number; scenarios: number; runs: number };
+  limits: { predictions: number | null; scenarios: number | null; runs: number | null; iterations: number; exports: boolean; seats: number; datasets: number | null };
+  usage: { predictions: number; scenarios: number; runs: number; datasets: number };
   subscription: { status: string; billing_interval: string; current_period_end: string | null; cancel_at_period_end: boolean } | null;
 }
 
@@ -33,6 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     ["Saved forecasts", String(info.usage.predictions), cap(info.limits.predictions)],
     ["Saved scenarios", String(info.usage.scenarios), cap(info.limits.scenarios)],
     ["Saved simulation runs", String(info.usage.runs), cap(info.limits.runs)],
+    ["Uploaded datasets", String(info.usage.datasets), cap(info.limits.datasets)],
     ["Max iterations per simulation", "", info.limits.iterations.toLocaleString("en-US")],
     ["Team seats (members and pending invitations)", "", String(info.limits.seats)],
     ["Report and workspace exports", "", info.limits.exports ? "Included" : "Not included"],

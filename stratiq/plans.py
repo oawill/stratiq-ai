@@ -21,12 +21,13 @@ class Limits:
     iterations: int           # max Monte Carlo iterations per run
     exports: bool             # report downloads and full workspace export
     seats: int                # members plus pending invitations (only enforced when billing is)
+    datasets: int | None      # uploaded datasets kept in the workspace
 
 
 PLANS: dict[str, tuple[str, Limits]] = {
-    "explorer": ("Explorer", Limits(predictions=10, scenarios=3, runs=3, iterations=10_000, exports=False, seats=2)),
-    "sports_pro": ("Sports Pro", Limits(predictions=None, scenarios=3, runs=3, iterations=10_000, exports=False, seats=2)),
-    "strategy_pro": ("Strategy Pro", Limits(predictions=None, scenarios=None, runs=None, iterations=200_000, exports=True, seats=5)),
+    "explorer": ("Explorer", Limits(predictions=10, scenarios=3, runs=3, iterations=10_000, exports=False, seats=2, datasets=1)),
+    "sports_pro": ("Sports Pro", Limits(predictions=None, scenarios=3, runs=3, iterations=10_000, exports=False, seats=2, datasets=3)),
+    "strategy_pro": ("Strategy Pro", Limits(predictions=None, scenarios=None, runs=None, iterations=200_000, exports=True, seats=5, datasets=20)),
 }
 
 
@@ -51,6 +52,7 @@ _COUNT_SQL = {
     "predictions": "select count(*) as n from predictions where workspace_id=%s",
     "scenarios": "select count(*) as n from strategic_scenarios where workspace_id=%s",
     "runs": "select count(*) as n from simulation_runs where workspace_id=%s",
+    "datasets": "select count(*) as n from datasets where workspace_id=%s",
 }
 
 
@@ -73,7 +75,7 @@ def check_quota(conn, workspace_id: str, kind: str) -> None:
     if cap is None:
         return
     if usage(conn, workspace_id)[kind] >= cap:
-        label = {"predictions": "saved forecasts", "scenarios": "saved scenarios", "runs": "saved simulation runs"}[kind]
+        label = {"predictions": "saved forecasts", "scenarios": "saved scenarios", "runs": "saved simulation runs", "datasets": "uploaded datasets"}[kind]
         _refuse(f"Your plan allows {cap} {label}. Upgrade to save more.", "plan_limit")
 
 

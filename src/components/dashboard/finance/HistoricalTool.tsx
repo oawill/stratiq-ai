@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { call } from "@/lib/client";
 import type { FinDataSources, FinHistorical } from "@/lib/types";
 import { Badge, ErrorPanel, Panel } from "../ui";
+import { DatasetPicker } from "../data/shared";
 import { ScenarioSaveBar, field, num, pc, useAnalysis } from "../analysis";
 
 export interface HistDraft {
@@ -92,6 +93,7 @@ export function HistoricalTool({ d, set, adv, onSaved }: { d: HistDraft; set: (d
           <strong className="text-ink">{src?.message ?? "Data source status unavailable."}</strong>{" "}
           Paste periodic returns below: one row per period, with the asset names in the first row.
         </div>
+        <div className="mb-3"><DatasetPicker id="h-dataset" kind="market_returns" label="Or use a dataset you uploaded" onPick={async (ds) => { const r = await call<{ csv: string; unit: "decimal"; periods_per_year: number | null }>(`data/datasets/${ds.id}/returns-csv`); set({ ...d, text: r.csv, unit: r.unit, ppy: r.periods_per_year ? String(r.periods_per_year) : d.ppy, weights: {} }); }} /></div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="sm:col-span-3"><label htmlFor="h-text" className="mb-1 block text-xs text-muted">Returns (CSV, tab or semicolon separated; an optional first “Date” column is ignored)</label>
             <textarea id="h-text" rows={7} value={d.text} onChange={(e) => set({ ...d, text: e.target.value, weights: {} })} placeholder={"Fund A,Fund B\n1.2,0.4\n-0.8,0.3\n…"} className={`${field} w-full font-mono text-xs`} /></div>

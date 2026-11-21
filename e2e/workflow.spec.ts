@@ -99,7 +99,7 @@ test("landing page leads to a working account and every module", async ({ page }
     for (const n of ["VELQORIN Sports", "VELQORIN Strategy", "VELQORIN Politics", "VELQORIN Markets", "VELQORIN SimLab"]) {
       await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: n })).toBeVisible();
     }
-    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/team", "/dashboard/billing", "/dashboard/settings"]) {
+    for (const path of ["/dashboard", "/dashboard/sports", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/history", "/dashboard/workspace", "/dashboard/team", "/dashboard/data", "/dashboard/billing", "/dashboard/settings"]) {
       await expectBranded(page, path);
     }
     await page.goto("/dashboard");
@@ -290,6 +290,107 @@ test("teammates: invite, accept, share work, comment, change role, remove", asyn
 
   await owner.context().close();
   await mate.context().close();
+});
+
+test("bring your own data: upload, validate, and use it in Sports, SimLab, Markets and Politics", async ({ page }) => {
+  // Small, clearly synthetic files generated here; no real data is involved.
+  const teams = ["Ash", "Birch", "Cedar", "Dune", "Elm", "Fir"];
+  const matches = ["date,home_team,away_team,home_goals,away_goals"];
+  for (let round = 0; round < 8; round++) {
+    teams.forEach((h, i) => {
+      const a = teams[(i + 1 + round) % teams.length];
+      if (a !== h) matches.push(`2024-01-${String(round + 1).padStart(2, "0")},${h},${a},${(i + round) % 4},${(i * 2 + round) % 3}`);
+    });
+  }
+  const sports = matches.join("\n");
+  const series = "month,demand\n" + Array.from({ length: 30 }, (_, i) => `${i + 1},${100 + (i % 7) * 3 + Math.sin(i) * 5}`).join("\n");
+  const returns = "date,Alpha Fund,Beta Fund\n" + Array.from({ length: 30 }, (_, i) => `${new Date(Date.UTC(2023, i, 28)).toISOString().slice(0, 10)},${(Math.sin(i) * 3 + 0.5).toFixed(2)},${(Math.cos(i * 1.3) * 2 + 0.3).toFixed(2)}`).join("\n");
+  const seats = "party,seats\nAlpha,40\nBeta,35\nGamma,15\nDelta,10\n";
+  const file = (name: string, text: string) => ({ name, mimeType: "text/csv", buffer: Buffer.from(text) });
+
+  async function upload(kind: string, name: string, csv: string, extra?: () => Promise<void>) {
+    await page.goto("/dashboard/data");
+    await page.getByLabel("What is it?").selectOption({ label: kind });
+    await page.getByLabel("Name", { exact: true }).fill(name);
+    if (extra) await extra();
+    await page.getByLabel(/CSV file/).setInputFiles(file(`${name}.csv`, csv));
+    await page.getByRole("button", { name: "Check the file" }).click();
+    await expect(page.getByText("The file is valid.")).toBeVisible();
+    await page.getByRole("button", { name: "Save dataset" }).click();
+    await expect(page.getByRole("status").filter({ hasText: `Saved “${name}”` })).toBeVisible();
+  }
+
+  await test.step("sign in", async () => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  await test.step("a bad file is explained line by line and cannot be saved", async () => {
+    await page.goto("/dashboard/data");
+    await page.getByLabel("Name", { exact: true }).fill("Broken");
+    await page.getByLabel(/CSV file/).setInputFiles(file("broken.csv", "date,home_team,away_team,home_goals,away_goals\nnot-a-date,A,B,1,1\n2024-01-02,A,A,1,1"));
+    await page.getByRole("button", { name: "Check the file" }).click();
+    await expect(page.getByText("Fix these problems and check again:")).toBeVisible();
+    await expect(page.getByText(/Line 2: date 'not-a-date'/)).toBeVisible();
+    await expect(page.getByText(/Line 3: home and away are both 'A'/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save dataset" })).toBeDisabled();
+  });
+
+  await test.step("sports results become a forecast on the user's own data", async () => {
+    await upload("Sports results", "E2E league", sports);
+    await expect(page.getByLabel("Datasets").getByText("E2E league")).toBeVisible();
+    await page.goto("/dashboard/sports");
+    await page.getByRole("tab", { name: "Your data" }).click();
+    await page.getByLabel("Dataset", { exact: true }).selectOption({ label: "E2E league" });
+    await page.getByLabel("Home team").selectOption("Ash");
+    await page.getByLabel("Away team").selectOption("Birch");
+    await page.getByRole("button", { name: "Forecast" }).click();
+    await expect(page.getByText("Model projection · not saved")).toBeVisible();
+    await expect(page.getByText(/Ratings fitted on \d+ matches from “E2E league”/)).toBeVisible();
+    await page.getByRole("button", { name: "Save forecast" }).click();
+    await expect(page.getByText(/^Saved at/)).toBeVisible();
+    await page.goto("/dashboard/history");
+    await expect(page.getByText("Ash vs Birch").first()).toBeVisible();
+  });
+
+  await test.step("a series fits a distribution for a SimLab variable", async () => {
+    await upload("Numeric series", "E2E demand", series);
+    await page.goto("/dashboard/simulations");
+    await page.getByRole("button", { name: "Fit to my data" }).first().click();
+    await page.getByLabel("Dataset", { exact: true }).selectOption({ label: "E2E demand" });
+    await page.getByLabel("Column").selectOption("demand");
+    await page.getByRole("button", { name: "Fit", exact: true }).click();
+    await expect(page.getByText(/Fitted (normal|lognormal) to 30 observations of “demand”/)).toBeVisible();
+  });
+
+  await test.step("a returns file feeds the historical risk tool", async () => {
+    await upload("Market prices / returns", "E2E funds", returns);
+    await page.goto("/dashboard/finance");
+    await page.getByRole("tab", { name: "Historical returns" }).click();
+    await page.getByLabel("Or use a dataset you uploaded").selectOption({ label: "E2E funds · 30 rows" });
+    await page.getByRole("button", { name: "Use this data" }).click();
+    await expect(page.getByLabel(/^Returns \(CSV/)).toHaveValue(/^Alpha Fund,Beta Fund\n/);
+    await expect(page.getByText("Value at Risk and Expected Shortfall")).toBeVisible();
+  });
+
+  await test.step("party seats fill the coalition tool", async () => {
+    await upload("Party seats", "E2E parliament", seats);
+    await page.goto("/dashboard/politics");
+    await page.getByLabel("Or use a dataset you uploaded").selectOption({ label: "E2E parliament · 4 rows" });
+    await page.getByRole("button", { name: "Use this data" }).click();
+    await expect(page.getByLabel("Party 1 name")).toHaveValue("Alpha");
+    await expect(page.getByLabel("Gamma seats")).toHaveValue("15");
+  });
+
+  await test.step("a dataset can be deleted", async () => {
+    page.on("dialog", (d) => d.accept());
+    await page.goto("/dashboard/data");
+    await page.getByRole("button", { name: "Delete E2E parliament" }).click();
+    await expect(page.getByLabel("Datasets").getByText("E2E parliament")).toHaveCount(0);
+  });
 });
 
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {

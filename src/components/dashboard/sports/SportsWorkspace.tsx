@@ -6,6 +6,7 @@ import { Loader2, Save } from "lucide-react";
 import type { Compare, Fixture, League, ResultRow, SportsInputs, SportsModelInfo, SportsOutputs, TeamRating } from "@/lib/types";
 import { Badge, Empty, ErrorPanel, Panel, dt, pct } from "../ui";
 import { useAdvanced } from "../useAdvanced";
+import { DataForecastTab } from "./DataForecastTab";
 import { GoalsChart, Heatmap, Outcomes, Plain, RatingsTable } from "./Projection";
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -298,14 +299,14 @@ function MethodologyTab() {
 
 export function SportsWorkspace({ leagues, initialLeague, initialTeam }: { leagues: League[]; initialLeague?: string; initialTeam?: string }) {
   const [leagueId, setLeagueId] = useState(leagues.find((l) => l.id === initialLeague)?.id ?? leagues[0]?.id ?? "");
-  const [tab, setTab] = useState<"fixtures" | "compare" | "method">(initialTeam ? "compare" : "fixtures");
+  const [tab, setTab] = useState<"fixtures" | "compare" | "data" | "method">(initialTeam ? "compare" : "fixtures");
   const [adv, setAdv] = useAdvanced();
   const league = leagues.find((l) => l.id === leagueId);
-  const TABS = [["fixtures", "Fixtures"], ["compare", "Team comparison"], ["method", "Methodology & performance"]] as const;
+  const TABS = [["fixtures", "Fixtures"], ["compare", "Team comparison"], ["data", "Your data"], ["method", "Methodology & performance"]] as const;
   const onKey = useCallback((e: React.KeyboardEvent) => {
     const idx = TABS.findIndex((t) => t[0] === tab);
-    if (e.key === "ArrowRight") setTab(TABS[(idx + 1) % 3][0]);
-    if (e.key === "ArrowLeft") setTab(TABS[(idx + 2) % 3][0]);
+    if (e.key === "ArrowRight") setTab(TABS[(idx + 1) % TABS.length][0]);
+    if (e.key === "ArrowLeft") setTab(TABS[(idx + TABS.length - 1) % TABS.length][0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -333,6 +334,7 @@ export function SportsWorkspace({ leagues, initialLeague, initialTeam }: { leagu
       <div role="tabpanel">
         {tab === "fixtures" && <FixturesTab key={leagueId} leagueId={leagueId} adv={adv} />}
         {tab === "compare" && <CompareTab key={leagueId} leagueId={leagueId} adv={adv} initialTeam={initialTeam} />}
+        {tab === "data" && <DataForecastTab adv={adv} />}
         {tab === "method" && <MethodologyTab />}
       </div>
     </div>

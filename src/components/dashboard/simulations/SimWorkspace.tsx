@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FitFromData } from "../data/FitFromData";
 import { brand } from "@/lib/brand";
 import { Download, Loader2, Play, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { call, post } from "@/lib/client";
@@ -162,6 +163,7 @@ function Editor({ d, set, onRun, running, runError }: { d: Draft; set: (d: Draft
                 {d.vars.length > 1 && <button type="button" onClick={() => set({ ...d, vars: d.vars.filter((_, j) => j !== i) })} aria-label={`Remove variable ${v.name}`} className="rounded p-2 text-muted hover:text-red-300"><X className="h-4 w-4" /></button>}
               </div>
               <p className="mt-1 text-[11px] text-muted">{DIST_FIELDS[v.type].help}</p>
+              <FitFromData idPrefix={`fit-${i}`} onFit={(f) => setVar(i, { type: f.dist.type as DistType, params: Object.fromEntries(Object.entries(f.dist).filter(([k]) => k !== "type").map(([k, x]) => [k, String(x)])) })} />
             </li>
           ))}
         </ul>
