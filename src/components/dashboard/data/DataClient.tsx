@@ -6,12 +6,18 @@ import { call, post } from "@/lib/client";
 import { Badge, Empty, ErrorPanel, Panel, dt } from "../ui";
 import { field } from "../analysis";
 import { KIND_LABEL, useDatasets, type DataKind, type DatasetRow } from "./shared";
+import { FootballHistory } from "./FootballHistory";
 
 const FORMAT: Record<DataKind, { columns: string; example: string; note: string }> = {
   sports_results: {
     columns: "date, home_team, away_team, home_goals, away_goals (football-data.co.uk files work as they are: Date, HomeTeam, AwayTeam, FTHG, FTAG; other columns are ignored)",
     example: "2024-01-06,Ash,Birch,2,1",
-    note: "Played matches only (dates as YYYY-MM-DD or day-first DD/MM/YYYY, whole-number goals). At least 30 matches and 4 teams. Team ratings are fitted on these results.",
+    note: "Played matches only (dates as YYYY-MM-DD or day-first DD/MM/YYYY, whole-number goals). At least 30 matches and 4 teams. Team ratings are fitted on these results. For whole Premier League seasons use Historical Football Data below.",
+  },
+  football_stats: {
+    columns: "date, home_team, away_team, then any of: home_xg, away_xg, home_shots, away_shots, home_shots_on_target, away_shots_on_target, home_corners, away_corners, odds_home, odds_draw, odds_away (football-data columns HS, AS, HST, AST, HC, AC, B365H, B365D, B365A also work)",
+    example: "2024-09-01,Arsenal,Chelsea,1.8,0.9",
+    note: "Played matches only, at least 20 rows, one row per match. Every statistic is optional but a blank stays blank: nothing is filled in. Statistics are used from the day after the match; odds are shown for comparison and are never fed to the models. Used by Match intelligence in Sports.",
   },
   market_returns: {
     columns: "date (optional), then one column per asset",
@@ -35,6 +41,7 @@ interface Preview { ok: boolean; errors?: string[]; row_count?: number; summary?
 function summaryLine(d: DatasetRow): string {
   const s = d.summary as Record<string, unknown>;
   if (d.kind === "sports_results") return `${s.matches} matches · ${s.teams} teams · ${s.first_date} to ${s.last_date}`;
+  if (d.kind === "football_stats") return `${s.rows} matches · ${Object.keys((s.fields as object) ?? {}).join(", ")} · ${s.first_date} to ${s.last_date}`;
   if (d.kind === "market_returns") return `${s.observations} observations · ${(s.assets as string[]).join(", ")}${s.first_date ? ` · ${s.first_date} to ${s.last_date}` : ""}`;
   if (d.kind === "political_seats") return `${s.parties} parties · ${s.total_seats} seats`;
   return `${s.observations} observations · ${Object.keys(s.columns as object).join(", ")}`;
@@ -44,6 +51,7 @@ function PreviewSummary({ kind, p }: { kind: DataKind; p: Preview }) {
   const s = (p.summary ?? {}) as Record<string, unknown>;
   const rows: [string, string][] = [["Rows", String(p.row_count)]];
   if (kind === "sports_results") rows.push(["Teams", String(s.teams)], ["Dates", `${s.first_date} to ${s.last_date}`], ["Goals per match", String(s.mean_goals_per_match)]);
+  if (kind === "football_stats") rows.push(["Teams", String(s.teams)], ["Dates", `${s.first_date} to ${s.last_date}`], ["Statistics", Object.entries((s.fields as Record<string, number>) ?? {}).map(([k, v]) => `${k} (${v})`).join(", ")]);
   if (kind === "market_returns") rows.push(["Assets", (s.assets as string[]).join(", ")], ["Frequency", s.periods_per_year ? `${s.periods_per_year} periods per year` : "unknown (no dates)"]);
   if (kind === "political_seats") rows.push(["Parties", String(s.parties)], ["Total seats", String(s.total_seats)]);
   if (kind === "series") rows.push(["Columns", Object.keys(s.columns as object).join(", ")]);
@@ -54,8 +62,7 @@ function PreviewSummary({ kind, p }: { kind: DataKind; p: Preview }) {
   );
 }
 
-function UploadPanel({ onSaved }: { onSaved: () => void }) {
-  const [kind, setKind] = useState<DataKind>("sports_results");
+function UploadPanel({ kind, setKind, onSaved }: { kind: DataKind; setKind: (k: DataKind) => void; onSaved: () => void }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [csv, setCsv] = useState("");
@@ -175,6 +182,7 @@ export function DataClient() {
   const [tick, setTick] = useState(0);
   const { list, error } = useDatasets(undefined, tick);
   const [err, setErr] = useState<string | null>(null);
+  const [kind, setKind] = useState<DataKind>("sports_results");
 
   async function remove(d: DatasetRow) {
     if (!confirm(`Delete “${d.name}”? Forecasts already saved from it keep their own record of the inputs.`)) return;
@@ -189,7 +197,8 @@ export function DataClient() {
 
   return (
     <div className="space-y-4">
-      <UploadPanel onSaved={() => setTick((t) => t + 1)} />
+      <UploadPanel kind={kind} setKind={setKind} onSaved={() => setTick((t) => t + 1)} />
+      {kind === "sports_results" && <FootballHistory />}
       <Panel title="Your datasets">
         {err && <p role="alert" className="mb-2 text-sm text-red-300">{err}</p>}
         {error ? <ErrorPanel message={error} /> : list === null ? <p className="text-sm text-muted" aria-busy="true">Loading…</p> : list.length === 0 ? (

@@ -76,6 +76,7 @@ class Source:
     conflicts: list[dict] = field(default_factory=list)      # same fixture, different scores: neither is accepted
     conflict_count: int = 0
     unplayed: int = 0
+    upcoming: list[tuple] = field(default_factory=list)      # (season, date, home, away) for future-dated rows: fixtures, not results
     rows_read: int = 0
     unknown_clubs: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -116,7 +117,10 @@ def read_source(text: str, competition: str = "EPL", combined: bool = False, tod
             src.reject(i, f"date '{raw_date}' is not a valid date (use YYYY-MM-DD or DD/MM/YYYY).")
             continue
         if d > today:
-            src.unplayed += 1       # a fixture that has not been played is skipped, not an error
+            src.unplayed += 1       # a fixture that has not been played is not a result: it is kept as an upcoming fixture, never as a score
+            fx = [canonical(x)[0] for x in (r[col["home"]], r[col["away"]]) if x.strip() and len(x.strip()) <= 60]
+            if len(fx) == 2 and fx[0] != fx[1] and (div_col is None or not r[div_col] or r[div_col].upper() == comp["division"]):
+                src.upcoming.append((season_label(d), d, fx[0], fx[1]))
             continue
         if div_col is not None and r[div_col] and r[div_col].upper() != comp["division"]:
             src.reject(i, f"division '{r[div_col]}' is not {comp['division']} ({comp['name']}).")
@@ -189,7 +193,8 @@ def read_source(text: str, competition: str = "EPL", combined: bool = False, tod
     src.rows = sorted((r for k, r in seen.items() if k not in clashing), key=lambda r: (r.date, r.home, r.away))
     if clashing:
         src.warnings.append(f"{len(clashing)} fixture(s) appear with different scores. Neither version was accepted; check the source and import again.")
-    if not src.rows:
+    src.upcoming = sorted(set(src.upcoming), key=lambda x: (x[1], x[2], x[3]))
+    if not src.rows and not src.upcoming:
         raise ds.DataError(["No usable matches in this file."] + [f"Line {x['line']}: {x['reason']}" for x in src.rejected[:10]])
     return src
 

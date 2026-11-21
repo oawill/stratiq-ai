@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { call } from "@/lib/client";
 import { field } from "../analysis";
 
-export type DataKind = "sports_results" | "market_returns" | "political_seats" | "series";
+export type DataKind = "sports_results" | "football_stats" | "market_returns" | "political_seats" | "series";
 
 export const KIND_LABEL: Record<DataKind, string> = {
-  sports_results: "Sports results",
+  sports_results: "Football match results",
+  football_stats: "Football advanced statistics",
   market_returns: "Market prices / returns",
   political_seats: "Party seats",
   series: "Numeric series",

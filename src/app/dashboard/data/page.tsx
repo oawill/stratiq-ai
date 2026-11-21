@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PageTitle } from "@/components/dashboard/ui";
 import { DataClient } from "@/components/dashboard/data/DataClient";
-import { FootballHistory } from "@/components/dashboard/data/FootballHistory";
 
 export const metadata: Metadata = { title: "Data" };
 
@@ -10,7 +9,6 @@ export default function Page() {
     <>
       <PageTitle title="Data" sub="Bring your own data. Uploads are validated line by line, stored privately in this workspace, and used by Sports, Markets, Politics and SimLab. We do not supply or scrape market data." />
       <DataClient />
-      <FootballHistory />
     </>
   );
 }

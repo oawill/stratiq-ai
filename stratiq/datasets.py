@@ -15,7 +15,7 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 
-KINDS = ("sports_results", "market_returns", "political_seats", "series")
+KINDS = ("sports_results", "market_returns", "political_seats", "series", "football_stats")
 MAX_CHARS = 2_000_000   # fits Vercel's 4.5 MB request limit with room to spare
 MAX_ROWS = 20_000
 MAX_COLS = 12
@@ -183,6 +183,89 @@ def parse_sports(text: str) -> Parsed:
     summary = {"matches": len(matches), "teams": len(counts), "first_date": matches[0][0], "last_date": matches[-1][0],
                "mean_goals_per_match": round(total / len(matches), 3), "team_matches": dict(sorted(counts.items()))}
     return Parsed("sports_results", {"matches": matches}, summary, len(matches), warnings)
+
+
+# ------------------------------------------------------------------ football advanced statistics (xG, shots, corners, odds)
+STATS_COLS = {
+    "date": ("date", "match_date", "kickoff"), "home": ("home_team", "home", "hometeam"), "away": ("away_team", "away", "awayteam"),
+    "home_xg": ("home_xg", "hxg"), "away_xg": ("away_xg", "axg"),
+    "home_shots": ("home_shots", "hs"), "away_shots": ("away_shots", "as"),
+    "home_shots_on_target": ("home_shots_on_target", "hst"), "away_shots_on_target": ("away_shots_on_target", "ast"),
+    "home_corners": ("home_corners", "hc"), "away_corners": ("away_corners", "ac"),
+    "odds_home": ("odds_home", "b365h", "avgh"), "odds_draw": ("odds_draw", "b365d", "avgd"), "odds_away": ("odds_away", "b365a", "avga"),
+}
+STATS_FIELDS = [k for k in STATS_COLS if k not in ("date", "home", "away")]
+STATS_INT = {"home_shots", "away_shots", "home_shots_on_target", "away_shots_on_target", "home_corners", "away_corners"}
+
+
+def parse_football_stats(text: str) -> Parsed:
+    """Per-match advanced statistics supplied by the user: expected goals, shots, corners and pre-match odds. Every value is
+    optional but never filled in: a blank stays blank (null). Club names are standardised like match results."""
+    from .football_teams import canonical
+    header, body = read_csv(text, SPORTS_MAX_COLS)
+    col = _columns(header, STATS_COLS, {"date", "home", "away"})
+    present = [f for f in STATS_FIELDS if f in col]
+    if not present:
+        raise DataError(["The file has no statistics columns. Add at least one of: " + ", ".join(STATS_FIELDS) + "."])
+    if any(k in col for k in ("odds_home", "odds_draw", "odds_away")) and not all(k in col for k in ("odds_home", "odds_draw", "odds_away")):
+        raise DataError(["Odds need all three columns: odds_home, odds_draw, odds_away."])
+    errs, rows, seen = _Errors(), [], set()
+    today = datetime.now(timezone.utc).date()
+    counts = {f: 0 for f in present}
+    for i, r in enumerate(body, start=2):
+        if len(r) != len(header):
+            errs.add(i, f"has {len(r)} values but the header has {len(header)} columns.")
+            continue
+        try:
+            d, _ = _match_date(r[col["date"]])
+        except ValueError:
+            errs.add(i, f"date '{r[col['date']]}' is not in YYYY-MM-DD or DD/MM/YYYY format.")
+            continue
+        if d > today:
+            errs.add(i, f"date {d} is in the future. Statistics are for played matches.")
+            continue
+        h, a = canonical(r[col["home"]])[0], canonical(r[col["away"]])[0]
+        if not h or not a or len(h) > 60 or len(a) > 60 or h == a:
+            errs.add(i, "home and away must be two different clubs of 1 to 60 characters.")
+            continue
+        if (d, h, a) in seen:
+            errs.add(i, f"{h} v {a} on {d} appears more than once.")
+            continue
+        seen.add((d, h, a))
+        rec: dict = {"date": d.isoformat(), "home": h, "away": a}
+        bad = False
+        for f in present:
+            raw = r[col[f]].strip()
+            if raw == "":
+                rec[f] = None
+                continue
+            try:
+                v = _num(raw)
+            except ValueError:
+                errs.add(i, f"{f} '{raw}' is not a number.")
+                bad = True
+                break
+            lo, hi = (1.01, 1000.0) if f.startswith("odds") else (0.0, 15.0) if "xg" in f else (0.0, 60.0)
+            if not lo <= v <= hi or (f in STATS_INT and v != int(v)):
+                errs.add(i, f"{f} {raw} is outside the allowed range {lo:g} to {hi:g}" + (" (whole numbers)" if f in STATS_INT else "") + ".")
+                bad = True
+                break
+            rec[f] = int(v) if f in STATS_INT else v
+            counts[f] += 1
+        if not bad:
+            odds = [rec.get(k) for k in ("odds_home", "odds_draw", "odds_away") if k in present]
+            if odds and any(o is None for o in odds) and any(o is not None for o in odds):
+                errs.add(i, "odds must have all three values or none.")
+                continue
+            rows.append(rec)
+    errs.raise_if_any()
+    if len(rows) < 20:
+        raise DataError([f"Only {len(rows)} row(s) found. At least 20 are needed."])
+    rows.sort(key=lambda x: (x["date"], x["home"], x["away"]))
+    teams = {t for x in rows for t in (x["home"], x["away"])}
+    warnings = [f"{f} is blank in {len(rows) - n} of {len(rows)} rows; those stay unavailable." for f, n in counts.items() if n < len(rows)]
+    summary = {"rows": len(rows), "teams": len(teams), "first_date": rows[0]["date"], "last_date": rows[-1]["date"], "fields": counts}
+    return Parsed("football_stats", {"rows": rows}, summary, len(rows), warnings)
 
 
 # ------------------------------------------------------------------ market returns / generic series
@@ -395,6 +478,8 @@ def parse(kind: str, text: str, options: dict | None = None) -> Parsed:
         return parse_seats(text)
     if kind == "series":
         return parse_series(text)
+    if kind == "football_stats":
+        return parse_football_stats(text)
     raise DataError([f"Unknown data kind '{kind}'."])
 
 

@@ -57,6 +57,8 @@ The Data page has a **Historical Football Data** section for ten seasons of Engl
 
 **Prediction features** (`stratiq/football_features.py`, endpoints `team`, `fixture`, `evaluation`): win/draw/loss rates, home and away splits, goals for and against, average goals, clean-sheet rate, rolling 5- and 10-match form, head to head, an Elo-style rating (K 20, home advantage 65 points, goal-difference multiplier), attack and defence strength, and Poisson score probabilities. Goal rates are estimated from results and are labelled as such; they are not provider expected goals. Every figure takes a date and uses only matches played strictly before it. `evaluation` splits matches by time (first 60% to learn from, next 20% validation, last 20% test), scores the model on the last two against the base-rate baseline, and reports log loss, Brier score, hit rate and a reliability table. Nothing is tuned on either period.
 
+Football forecasting on top of this history (Elo, Poisson, Dixon-Coles, backtesting, dashboard) is described in `FOOTBALL.md`. Future-dated rows in a results file are stored as upcoming fixtures, and a new dataset type, **Football advanced statistics** (`date, home_team, away_team` plus any of `home_xg, away_xg, home_shots, away_shots, home_shots_on_target, away_shots_on_target, home_corners, away_corners, odds_home, odds_draw, odds_away`), carries expected goals and odds. The sports results type is now labelled "Football match results".
+
 Not built: scheduled or automated synchronization (there is nothing to fetch), other competitions, and provider expected-goals data. The current season is kept up to date by importing its newer file again.
 
 ## Plans and permissions
@@ -75,4 +77,4 @@ Not built: scheduled or automated synchronization (there is nothing to fetch), o
 
 ## Database
 
-Migration `0008_datasets.sql` adds the `datasets` table (applied to production). Migration `0009_match_history.sql` adds `match_history` and `match_imports`; it is additive and applied to the development database only. **Apply it to production before using the Historical Football Data section there** (`node scripts/migrate.mjs` with production credentials).
+Migration `0008_datasets.sql` adds the `datasets` table (applied to production). Migration `0009_match_history.sql` adds `match_history` and `match_imports` (applied to production). Migration `0010_football_intelligence.sql` adds the football intelligence tables and allows the `football_stats` dataset kind; it is additive and applied to the development database only. **Apply it to production before using Football intelligence there** (`node scripts/migrate.mjs` with production credentials).

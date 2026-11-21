@@ -340,7 +340,7 @@ test("bring your own data: upload, validate, and use it in Sports, SimLab, Marke
   });
 
   await test.step("sports results become a forecast on the user's own data", async () => {
-    await upload("Sports results", "E2E league", sports);
+    await upload("Football match results", "E2E league", sports);
     await expect(page.getByLabel("Datasets").getByText("E2E league")).toBeVisible();
     await page.goto("/dashboard/sports");
     await page.getByRole("tab", { name: "Your data" }).click();
@@ -486,6 +486,120 @@ test("historical football data: import season files, see them checked, browse, e
     await page.goto("/dashboard/sports");
     await page.getByRole("tab", { name: "Your data" }).click();
     await page.getByLabel("Dataset", { exact: true }).selectOption({ label: "E2E Premier League" });
+  });
+});
+
+test("football intelligence: each data type shows its own requirements, then forecasts, scenarios and performance are explained", async ({ page }) => {
+  test.setTimeout(360_000);
+  // Six SYNTHETIC seasons (real club names, invented scores) in the five-column format, imported as one combined file.
+  const clubs = ["Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton & Hove Albion", "Burnley", "Chelsea", "Crystal Palace", "Everton", "Fulham",
+    "Leeds United", "Leicester City", "Liverpool", "Manchester City", "Manchester United", "Newcastle United", "Southampton", "Tottenham", "West Ham United", "Wolves"];
+  const rows = ["date,home_team,away_team,home_goals,away_goals"];
+  for (let year = 2016; year <= 2021; year++) {
+    let i = 0;
+    for (const h of clubs) for (const a of clubs) {
+      if (h === a) continue;
+      const d = new Date(Date.UTC(year, 7, 12) + 86_400_000 * 7 * Math.floor(i / 10));
+      const strength = (c: string) => 1 + ((clubs.indexOf(c) * 7 + year) % 5) / 4;
+      const hg = Math.floor(((i * 7 + year) % 5) * strength(h) / strength(a) / 2.2);
+      const ag = Math.floor(((i * 5 + year) % 4) * strength(a) / strength(h) / 2);
+      rows.push(`${d.toISOString().slice(0, 10)},${h},${a},${hg},${ag}`);
+      i++;
+    }
+  }
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await test.step("every Data Workspace type shows only its own upload requirements", async () => {
+    await page.goto("/dashboard/data");
+    const kind = page.getByLabel("What is it?");
+    await expect(kind.locator("option")).toHaveText(["Football match results", "Football advanced statistics", "Market prices / returns", "Party seats", "Numeric series"]);
+    const note = page.getByRole("note").first();
+    const history = page.getByRole("region", { name: "Historical Football Data" });
+    await expect(note).toContainText("home_team, away_team, home_goals, away_goals");
+    await expect(history).toBeVisible();
+    for (const [label, has, hasNot] of [
+      ["Football advanced statistics", "home_xg", "home_goals"], ["Market prices / returns", "one column per asset", "home_team"],
+      ["Party seats", "party, seats", "home_team"], ["Numeric series", "one column per variable", "home_team"],
+    ] as const) {
+      await kind.selectOption({ label });
+      await expect(note).toContainText(has);
+      await expect(note).not.toContainText(hasNot);
+      await expect(history).toBeHidden();                      // the football template and history section only belong to football match results
+    }
+    await kind.selectOption({ label: "Football match results" });
+    await expect(history).toBeVisible();
+  });
+
+  await test.step("six seasons are imported as one combined file", async () => {
+    const history = page.getByRole("region", { name: "Historical Football Data" });
+    await page.getByLabel(/Season files/).setInputFiles({ name: "six_seasons.csv", mimeType: "text/csv", buffer: Buffer.from(rows.join("\n") + "\n") });
+    await history.getByLabel(/Combined file/).check();
+    await page.getByRole("button", { name: "Import Historical Data" }).click();
+    await expect(history.getByText(/2,280 accepted/)).toBeVisible();
+  });
+
+  await page.goto("/dashboard/sports");
+  await page.getByRole("tab", { name: "Football intelligence" }).click();
+  const intel = page.getByRole("tabpanel");
+
+  await test.step("factors are listed with what is unavailable", async () => {
+    await page.getByRole("tab", { name: "Data & factors" }).click();
+    await expect(intel.getByRole("rowheader", { name: /Player availability/ })).toBeVisible();
+    await expect(intel.getByText("Nothing is filled in")).toBeVisible();
+    await expect(intel.getByText("Unavailable").first()).toBeVisible();
+  });
+
+  await test.step("today's matches explains how to get fixtures", async () => {
+    await page.getByRole("tab", { name: "Today's matches" }).click();
+    await expect(intel.getByText(/Import a fixtures file/)).toBeVisible();
+  });
+
+  await test.step("match intelligence shows forecasts, drivers, reliability and warnings", async () => {
+    await page.getByRole("tab", { name: "Match intelligence" }).click();
+    await intel.getByLabel("Home team").selectOption("Arsenal");
+    await intel.getByLabel("Away team").selectOption("Chelsea");
+    await intel.getByRole("button", { name: "Analyse match" }).click();
+    await expect(intel.getByText("Model forecast").first()).toBeVisible();
+    await expect(intel.getByRole("rowheader", { name: "Dixon-Coles" })).toBeVisible();
+    await expect(intel.getByRole("rowheader", { name: "Elo rating" })).toBeVisible();
+    await expect(intel.getByText("Key prediction drivers")).toBeVisible();
+    await expect(intel.getByText("Four separate measures")).toBeVisible();
+    await expect(intel.getByText(/A 75% probability is not a 75% confidence score/)).toBeVisible();
+    await expect(intel.getByText("Unavailable and not used:", { exact: false })).toBeVisible();
+    await expect(intel.getByText(/Not a certainty, and not betting or financial advice/)).toBeVisible();
+    await intel.getByRole("button", { name: "Save forecast" }).click();
+    await expect(intel.getByText(/Saved\. It will be scored/)).toBeVisible();
+  });
+
+  await test.step("the simulator labels a scenario as hypothetical and disables unsupported inputs", async () => {
+    await page.getByRole("tab", { name: "Simulator" }).click();
+    await intel.getByLabel("Home team").selectOption("Arsenal");
+    await intel.getByLabel("Away team").selectOption("Chelsea");
+    await intel.getByLabel(/Home: attack lost to absent key players/).fill("0.3");
+    await expect(intel.getByLabel("Rest days")).toBeDisabled();
+    await expect(intel.getByLabel("Expected lineups")).toBeDisabled();
+    await intel.getByRole("button", { name: "Recalculate" }).click();
+    await expect(intel.getByText("Hypothetical scenario (not a forecast)")).toBeVisible();
+    await expect(intel.getByText("Forecast from the data")).toBeVisible();
+    await expect(intel.getByText(/HYPOTHETICAL: what the models would say/)).toBeVisible();
+  });
+
+  await test.step("a backtest measures every model against the baselines", async () => {
+    await page.getByRole("tab", { name: "Model performance" }).click();
+    await expect(intel.getByText(/No backtest has been run yet/)).toBeVisible();
+    await intel.getByRole("button", { name: "Run chronological backtest" }).click();
+    await expect(intel.getByText("Chronological backtest", { exact: true })).toBeVisible({ timeout: 180_000 });
+    await expect(intel.getByText(/All chosen on validation only/)).toBeVisible();
+    await expect(intel.getByRole("rowheader", { name: "Historical frequencies" }).first()).toBeVisible();
+    await expect(intel.getByText(/the frequency baseline/).first()).toBeVisible();
+    await expect(intel.getByText("By prediction market")).toBeVisible();
+    await intel.getByLabel("Period").selectOption("validation");
+    await expect(intel.getByText("Calibration", { exact: true })).toBeVisible();
+    await expect(intel.getByText(/Nothing was tuned on the test period/)).toBeVisible();
   });
 });
 

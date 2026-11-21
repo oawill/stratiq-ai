@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from . import backtest
 from . import datasets as ds
+from . import football_store
 from . import model as sports_model
 from . import plans
 from .db import get_conn
@@ -18,7 +19,7 @@ from .security import ADMIN_ROLES, Auth, require_write
 
 router = APIRouter(prefix="/api/v1/data", tags=["data"])
 
-Kind = Literal["sports_results", "market_returns", "political_seats", "series"]
+Kind = Literal["sports_results", "market_returns", "political_seats", "series", "football_stats"]
 DsName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 
 
@@ -55,7 +56,12 @@ def create_dataset(body: CreateBody, p: Auth, conn=Depends(get_conn)):
         parsed = _parse(body)
     except ds.DataError as e:
         raise HTTPException(422, {"errors": e.errors})
-    return store_dataset(conn, p, body.kind, body.name, body.description, parsed)
+    out = store_dataset(conn, p, body.kind, body.name, body.description, parsed)
+    if body.kind == "football_stats":
+        football_store.store_stats(conn, p, out["id"], parsed.data["rows"])
+        football_store.record_source(conn, p, "advanced_statistics", body.name, f"dataset {out['id']} sha256:{parsed.sha256[:12]}",
+                                     {k: parsed.summary[k] for k in ("rows", "teams", "first_date", "last_date", "fields")}, {"warnings": parsed.warnings})
+    return out
 
 
 def store_dataset(conn, p, kind: str, name: str, description: str | None, parsed: ds.Parsed, source: str = "Uploaded dataset") -> dict:

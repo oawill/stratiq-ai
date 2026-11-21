@@ -7,6 +7,7 @@ import type { Compare, Fixture, League, ResultRow, SportsInputs, SportsModelInfo
 import { Badge, Empty, ErrorPanel, Panel, dt, pct } from "../ui";
 import { useAdvanced } from "../useAdvanced";
 import { DataForecastTab } from "./DataForecastTab";
+import { FootballIntel } from "./FootballIntel";
 import { GoalsChart, Heatmap, Outcomes, Plain, RatingsTable } from "./Projection";
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -299,10 +300,10 @@ function MethodologyTab() {
 
 export function SportsWorkspace({ leagues, initialLeague, initialTeam }: { leagues: League[]; initialLeague?: string; initialTeam?: string }) {
   const [leagueId, setLeagueId] = useState(leagues.find((l) => l.id === initialLeague)?.id ?? leagues[0]?.id ?? "");
-  const [tab, setTab] = useState<"fixtures" | "compare" | "data" | "method">(initialTeam ? "compare" : "fixtures");
+  const [tab, setTab] = useState<"fixtures" | "compare" | "data" | "football" | "method">(initialTeam ? "compare" : "fixtures");
   const [adv, setAdv] = useAdvanced();
   const league = leagues.find((l) => l.id === leagueId);
-  const TABS = [["fixtures", "Fixtures"], ["compare", "Team comparison"], ["data", "Your data"], ["method", "Methodology & performance"]] as const;
+  const TABS = [["fixtures", "Fixtures"], ["compare", "Team comparison"], ["data", "Your data"], ["football", "Football intelligence"], ["method", "Methodology & performance"]] as const;
   const onKey = useCallback((e: React.KeyboardEvent) => {
     const idx = TABS.findIndex((t) => t[0] === tab);
     if (e.key === "ArrowRight") setTab(TABS[(idx + 1) % TABS.length][0]);
@@ -335,6 +336,7 @@ export function SportsWorkspace({ leagues, initialLeague, initialTeam }: { leagu
         {tab === "fixtures" && <FixturesTab key={leagueId} leagueId={leagueId} adv={adv} />}
         {tab === "compare" && <CompareTab key={leagueId} leagueId={leagueId} adv={adv} initialTeam={initialTeam} />}
         {tab === "data" && <DataForecastTab adv={adv} />}
+        {tab === "football" && <FootballIntel />}
         {tab === "method" && <MethodologyTab />}
       </div>
     </div>

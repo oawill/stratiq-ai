@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from . import datasets as ds
 from . import football_features as ff
 from . import football_history as fh
+from . import football_store
 from . import plans
 from .data_api import store_dataset
 from .db import get_conn
@@ -74,6 +75,14 @@ def import_file(body: ImportBody, p: Auth, conn=Depends(get_conn)):
         raise HTTPException(422, {"errors": [f"This would bring the stored matches to {total_after:,}; the limit is {fh.MAX_ROWS_PER_COMPETITION:,}."]})
 
     sha = hashlib.sha256(body.csv.encode()).hexdigest()
+    if not body.dry_run and src.upcoming:
+        source_id = football_store.record_source(conn, p, "fixtures", body.filename or "Fixtures", f"{body.filename or 'upload'} sha256:{sha[:12]}",
+                                                 {"fixtures": len(src.upcoming), "first": src.upcoming[0][1].isoformat(), "last": src.upcoming[-1][1].isoformat()}, {"warnings": src.warnings})
+        with conn.cursor() as cur:
+            cur.executemany(
+                """insert into football_fixtures (workspace_id, competition, season, fixture_date, home_team, away_team, source_id) values (%s,%s,%s,%s,%s,%s,%s)
+                   on conflict (workspace_id, competition, fixture_date, home_team, away_team) do nothing""",
+                [(p.workspace_id, body.competition, s_, d, h, a, source_id) for s_, d, h, a in src.upcoming])
     if not body.dry_run and new:
         ref = f"{body.filename or 'upload'} sha256:{sha[:12]}"
         with conn.cursor() as cur:
@@ -83,6 +92,11 @@ def import_file(body: ImportBody, p: Auth, conn=Depends(get_conn)):
                    on conflict on constraint match_history_fixture do nothing""",
                 [(p.workspace_id, body.competition, r.season, r.date, r.home, r.away, r.hg, r.ag, ref) for r in new],
             )
+    if not body.dry_run and new:
+        football_store.record_source(conn, p, "match_results", body.filename or "Match results", f"{body.filename or 'upload'} sha256:{sha[:12]}",
+                                     {"matches": len(new), "seasons": seasons}, {"rejected": src.rejected_count, "conflicts": src.conflict_count + len(clash), "warnings": src.warnings})
+        football_store.refresh_teams(conn, p.workspace_id, body.competition)
+    scored = football_store.reconcile(conn, p.workspace_id) if (not body.dry_run and new) else 0
     stored = _stored(conn, p.workspace_id, body.competition, seasons)
     if body.dry_run:   # what the stored data would look like after this import
         have = {(s, d, h, a) for s, d, h, a, *_ in stored}
@@ -97,7 +111,7 @@ def import_file(body: ImportBody, p: Auth, conn=Depends(get_conn)):
         "rejected": src.rejected_count, "rejected_rows": src.rejected, "duplicates": src.duplicate_count, "duplicate_rows": src.duplicates,
         "conflicts": src.conflict_count + len(clash), "conflict_rows": conflicts[:fh.MAX_STORED_ISSUES], "unplayed_skipped": src.unplayed,
         "unknown_clubs": src.unknown_clubs, "warnings": src.warnings, "seasons": [{**r, "first_date": r["first_date"].isoformat(), "last_date": r["last_date"].isoformat()} for r in reports],
-        "missing": sum(r["missing_count"] for r in reports),
+        "missing": sum(r["missing_count"] for r in reports), "upcoming_fixtures": len(src.upcoming), "forecasts_scored": scored,
     }
     if not body.dry_run:
         status = "needs_review" if needs_review else "ok"
