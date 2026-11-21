@@ -820,6 +820,36 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(intel.getByText(/Checked\. \d+ finished forecasts? (was|were) scored/)).toBeVisible();
     await expect(intel.getByRole("cell", { name: "Checked, 0 scored" }).or(intel.getByRole("cell", { name: /Checked, \d+ scored/ })).first()).toBeVisible();
   });
+
+  await test.step("watchlists: watch a club and see its status computed from the imported matches", async () => {
+    await page.goto("/dashboard/watchlists");
+    await expect(page.getByRole("heading", { name: "Watchlists" })).toBeVisible();
+    await expect(page.getByText("Your watchlist is empty")).toBeVisible();
+    await page.getByLabel("Club").selectOption("Arsenal");
+    await page.getByRole("button", { name: "Watch club" }).click();
+    const card = page.getByRole("list", { name: "Watchlist" }).getByRole("listitem").first();
+    await expect(card.getByText("Arsenal").first()).toBeVisible();
+    await expect(card.getByText("Elo rating")).toBeVisible();
+    await expect(card.getByRole("list", { name: "Last five results" }).getByRole("listitem")).toHaveCount(5);
+    await expect(card.getByText(/Calculated from your imported matches/)).toBeVisible();
+    await page.getByRole("button", { name: "Remove Arsenal from watchlist" }).click();
+    await expect(page.getByText("Your watchlist is empty")).toBeVisible();
+  });
+
+  await test.step("reports: provenance, historical evaluation and forecasts are separate, with no invented figures", async () => {
+    await page.goto("/dashboard/reports");
+    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
+    await expect(page.getByText("1. Data and provenance")).toBeVisible();
+    await expect(page.getByText(/SHA-256 of the stored matches/)).toBeVisible();
+    await expect(page.getByText("2. Historical evaluation")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Test period \(never used to choose settings\)/ })).toBeVisible();
+    await expect(page.getByRole("rowheader", { name: "Calibrated ensemble" }).first()).toBeVisible();
+    await expect(page.getByText("3. Forecasts")).toBeVisible();
+    await expect(page.getByText(/No tracked forecast has been scored yet/)).toBeVisible();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download Markdown" }).click()]);
+    expect(download.suggestedFilename()).toMatch(/^evidence-report-\d{4}-\d{2}-\d{2}\.md$/);
+    await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Watchlists" })).toBeVisible();
+  });
 });
 
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {
@@ -834,7 +864,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
-  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data"]) {
+  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/reports"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const { overflow, culprits } = await page.evaluate(() => {

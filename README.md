@@ -103,3 +103,9 @@ Extra env vars: `INTERNAL_API_SECRET` (32+ chars), `PY_API_URL` (default `http:/
 - Dev and the deployed site share one Neon database.
 - No Playwright end-to-end suite yet (workflow was verified manually in a browser).
 - Workspaces are single-member; no invites, password reset, or profile editing.
+
+## Watchlists and Reports
+
+- **Watchlists** (`/dashboard/watchlists`, `stratiq/watchlist_api.py`, migration `0012_watchlists.sql`): a personal list (up to 50 items) of Premier League clubs and upcoming fixtures from the history and fixtures you imported. A club shows Elo rating, points and goals per match, its last five results and its next imported fixture; a fixture shows a Dixon-Coles forecast labelled with whether the settings were tuned, or its result once it is played. Statuses are calculated from your imports, not from a live feed. Each person sees only their own list.
+- **Reports** (`/dashboard/reports`, `stratiq/reports_api.py`, `src/lib/report.ts`): an evidence report with three separate sections (data and provenance, historical evaluation from backtests, and tracked forecasts) read from stored records. With no backtest it shows no accuracy figures; if the imported history changed since a backtest it says so. It can be printed or downloaded as Markdown. Per-item report exports in the library remain a Strategy Pro feature.
+- The dashboard sidebar now lists Overview, Sports, Strategy, Politics, Markets, SimLab, Data, Watchlists, Reports and Settings first, then the workspace tools (Prediction History, My Workspace, Team, Plan & Billing).

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { brand } from "@/lib/brand";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search, X } from "lucide-react";
 import { Logo } from "../Logo";
 import { DASH_NAV } from "./nav";
@@ -177,8 +177,9 @@ function SideNav({ onNavigate }: { onNavigate?: () => void }) {
       {DASH_NAV.map((n) => {
         const active = n.href === "/dashboard" ? path === n.href : path.startsWith(n.href);
         return (
+          <Fragment key={n.href}>
+          {n.href === "/dashboard/history" && <p className="mt-3 px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Workspace tools</p>}
           <Link
-            key={n.href}
             href={n.href}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
@@ -188,6 +189,7 @@ function SideNav({ onNavigate }: { onNavigate?: () => void }) {
             <span className="flex-1">{n.label}</span>
             {n.status === "soon" && <span className="rounded-full border border-line px-1.5 text-[9px] uppercase tracking-wide text-muted">Soon</span>}
           </Link>
+          </Fragment>
         );
       })}
     </nav>
