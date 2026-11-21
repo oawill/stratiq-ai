@@ -26,10 +26,26 @@ function legacyHostRedirects(): { source: string; has: { type: "host"; value: st
   }));
 }
 
+/**
+ * Baseline security headers for every response. HSTS is already added by the platform. A full Content-Security-Policy is deliberately not
+ * set: it needs per-request nonces for Next.js inline scripts and would need testing against every page; only `frame-ancestors` (the
+ * clickjacking control) is set here, which is safe on its own.
+ */
+const SECURITY_HEADERS = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(self)" },
+];
+
 const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
   async redirects() {
     // The four per-domain pages were folded into the home page carousel: /sports is slide 1 of /, and so on.
     const slides = ["sports", "business", "politics", "finance"].map((s) => ({ source: `/${s}`, destination: `/#${s}`, permanent: true }));

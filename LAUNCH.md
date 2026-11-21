@@ -33,3 +33,22 @@ Everything in the code is ready and inactive until you do the steps below. Nothi
 
 - No DNS, domain, env var or provider account was touched.
 - No legal text is final. The drafts describe what the app actually collects today (see the Privacy Policy) but make no claims about entity, jurisdiction or retention.
+
+## Status after Phase 12 (checked on https://stratiq-ai.vercel.app)
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Lighthouse 13 on the live home page (carousel layout), desktop / mobile with simulated throttling | Performance 100 / 100, accessibility 100 / 100, best practices 100 / 100, SEO 100 / 100. LCP 0.5 s / 1.1 s, CLS 0, TBT 0 ms / 80 ms. Lab numbers from one machine, not field data. |
+| `/_vercel/insights/script.js` | Answers 200 on the live site, so the page-analytics script loads. Confirm in the Vercel dashboard (Analytics tab) that Web Analytics is switched on and receiving views. |
+| `robots.txt` and `sitemap.xml` | Live. The sitemap lists the home page, how-it-works, pricing, about, early-access, terms and privacy; the four old domain pages are gone and redirect (308) to the carousel slides. |
+| Security headers | HSTS was already sent by the platform. Phase 12 adds `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, a strict `Referrer-Policy` and a restrictive `Permissions-Policy` (in `next.config.ts`; covered by an e2e check once deployed). A full script-restricting CSP is **not** set: it needs per-request nonces and page-by-page testing. |
+
+**Needs you (nothing below has been done, and none of it can be done from the code)**
+
+1. **Real football accuracy.** Import your ten Premier League seasons (Data, Historical Football Data), then Sports, Football intelligence, Model performance, Run chronological backtest. Until then no accuracy figure for any model is real.
+2. **Scheduled football jobs.** Set `CRON_SECRET` (16+ random characters) in the Vercel project and add this to `vercel.json`, then redeploy: `"crons": [{ "path": "/api/v1/football/jobs/scheduled", "schedule": "0 6 * * *" }]`. Until you do, nothing runs by itself (see FOOTBALL.md, Automation).
+3. **Stripe.** Follow BILLING.md steps 1 to 3 with a test key, complete a test purchase, check the webhook and the billing portal, and only then set `BILLING_ENFORCED=1`. The real Stripe round trip has never been exercised.
+4. **Domain, email, legal**: steps 1 to 6 above (own the domain, DNS and env vars, Resend, lawyer-finished Terms and Privacy).
+5. **Real-device check of the carousel.** Swipe, the menu and the Solutions dropdown on an actual iPhone (Safari) and an Android phone. Automated checks cover Chromium with emulated touch only.

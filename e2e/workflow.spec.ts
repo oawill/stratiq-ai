@@ -38,7 +38,13 @@ test("public pages, metadata and assets carry the VELQORIN brand", async ({ page
   for (const path of ["/", "/login", "/signup", "/pricing", "/about", "/how-it-works", "/early-access", "/terms", "/privacy", "/no-such-page"]) {
     await expectBranded(page, path);
   }
-  await page.goto("/");
+  const home = await page.goto("/");
+  const h = home!.headers();
+  expect(h["x-content-type-options"]).toBe("nosniff");
+  expect(h["x-frame-options"]).toBe("DENY");
+  expect(h["content-security-policy"]).toBe("frame-ancestors 'none'");
+  expect(h["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  expect(h["permissions-policy"]).toContain("camera=()");
   await expect(page.getByRole("link", { name: "VELQORIN", exact: true }).first()).toBeVisible();
   await expect(page.getByText("Intelligence Beyond Prediction").first()).toBeVisible();
   await expect(page.getByText("Predict. Simulate. Strategize.").first()).toBeVisible();
