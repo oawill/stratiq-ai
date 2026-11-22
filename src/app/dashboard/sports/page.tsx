@@ -8,7 +8,7 @@ import { SportsWorkspace } from "@/components/dashboard/sports/SportsWorkspace";
 
 export const metadata: Metadata = { title: { absolute: `${brand.products.sports.name} | Dashboard` } };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ league?: string; team?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ league?: string; team?: string; tab?: string }> }) {
   const s = await requireSession();
   const sp = await searchParams;
   let leagues: League[];
@@ -20,7 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ l
   return (
     <>
       <PageTitle title={brand.products.sports.name} sub="Poisson match forecasts. Start simple, then switch on Advanced analytics for scorelines, ratings and history." />
-      <SportsWorkspace leagues={leagues} initialLeague={sp.league} initialTeam={sp.team} />
+      <SportsWorkspace leagues={leagues} initialLeague={sp.league} initialTeam={sp.team} initialTab={sp.tab} />
     </>
   );
 }

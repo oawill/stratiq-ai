@@ -1140,6 +1140,35 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page.getByLabel("Hold notifications back during these hours")).toBeChecked();
     await expect(page.getByLabel("Generate a briefing automatically")).toHaveValue("weekly");
   });
+
+  await test.step("live predictions: honest about a missing provider, with every tab, filters and a remembered time zone", async () => {
+    await page.goto("/dashboard/sports/live");
+    await expect(page.getByRole("heading", { name: "Live Predictions", level: 1 })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Live Predictions" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByText("Not connected")).toBeVisible();
+    await expect(page.getByText(/No provider key is configured on the server/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh fixtures" })).toBeDisabled();
+    await expect(page.getByText(/No fixtures in this window/)).toBeVisible();          // nothing is invented
+    await page.getByLabel("Team").fill("zzz-nobody");
+    await expect(page.getByText(/No fixtures in this window/)).toBeVisible();
+    const tabs = page.getByRole("navigation", { name: "Live predictions sections" });
+    await tabs.getByRole("link", { name: "Upcoming fixtures" }).click();
+    await expect(page).toHaveURL(/tab=upcoming/);
+    await page.getByLabel("Period").selectOption("month");
+    await expect(page.getByRole("heading", { name: "Next 30 days" })).toBeVisible();
+    await tabs.getByRole("link", { name: "Match intelligence" }).click();
+    await expect(page.getByText(/Select a match to see its forecast/)).toBeVisible();
+    await tabs.getByRole("link", { name: "Prediction history" }).click();
+    await expect(page.getByText(/No forecasts have been stored yet/)).toBeVisible();
+    await tabs.getByRole("link", { name: "Completed matches" }).click();
+    await expect(page.getByRole("heading", { name: "Last 30 days" })).toBeVisible();
+    await page.getByLabel("Time zone").selectOption("Asia/Tokyo");
+    await page.reload();
+    await expect(page.getByLabel("Time zone")).toHaveValue("Asia/Tokyo");
+    await page.getByRole("link", { name: "Model performance" }).click();
+    await expect(page).toHaveURL(/\/dashboard\/sports\?tab=football/);
+    await expect(page.getByRole("tab", { name: "Football intelligence" })).toHaveAttribute("aria-selected", "true");
+  });
 });
 
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {
@@ -1154,7 +1183,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
-  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/notifications", "/dashboard/reports", "/dashboard/analyst"]) {
+  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/notifications", "/dashboard/reports", "/dashboard/analyst", "/dashboard/sports/live", "/dashboard/sports/live?tab=upcoming", "/dashboard/sports/live?tab=intel"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const { overflow, culprits } = await page.evaluate(() => {

@@ -1,4 +1,4 @@
-# Live football intelligence — Phase 4A (provider and fixture ingestion)
+# Live football intelligence — Phases 4A and 4B (fixture ingestion, versioned forecasts)
 
 Status: **built and tested against mocked provider responses. Not yet tested against the real football-data.org API** (no API key has been supplied). Live connectivity is not claimed until `scripts`-free check below passes.
 
@@ -47,6 +47,33 @@ Read from the provider's pricing, coverage and policy pages (API-Football's page
 2. In the app, press the sync endpoint (`POST /api/v1/football/live/sync`) as a member.
 3. `GET /api/v1/football/live/provider` should show a recent `last_success_at` and zero failures, and `/fixtures?window=month` should list real fixtures. Between seasons the provider may legitimately return none.
 
+
+## Phase 4B: automated, versioned pre-match forecasts
+
+Code: `stratiq/football_forecast.py`, migration `0018_prediction_versions.sql` (dev only), endpoints in `football_live_api.py`.
+
+* **Which model.** The production model is the calibrated ensemble when the latest backtest produced one, otherwise Dixon-Coles. Goal markets (expected goals, over/under 2.5, both teams to score, the five most likely scores) always come from Dixon-Coles and say so (`goal_model`). Without a backtest the settings are untuned defaults and every forecast carries that warning.
+* **Outputs per version.** Home, draw and away probabilities (and display percentages that add up to exactly 100.0), expected goals, over/under 2.5, both teams to score, top five scorelines, drivers, data-quality warnings, data completeness out of the thirteen factors, provider references (provider fixture id, provider update time, last sync, results history date), the linked frozen feature snapshot and the exact model version.
+* **Versioning.** Every change makes a new row; nothing is overwritten. A database trigger rejects any edit of a stored version except the official marker, and a check constraint rejects a version stamped at or after kickoff. A forecast whose inputs (data snapshot, model, kickoff time) are identical to the last one is not stored again.
+* **Official forecast.** The latest version made before kickoff is marked official (one per fixture). It freezes at kickoff because nothing can be generated after it.
+* **Information boundary.** Forecasts are made only for `scheduled` fixtures before kickoff, from results dated before today. A result dated today or later changes nothing.
+* **No forecast without evidence.** A club that is not in the imported history, or has fewer than five earlier matches, or a postponed, cancelled, live or finished match, gets no forecast and a stated reason.
+* **Scheduler.** The scheduled cycle syncs fixtures, then creates a first forecast for scheduled fixtures in the next 14 days that have none (at most 10 per run and 40 seconds, the rest wait for the next run). Refresh checkpoints (48h, 24h, 6h, 1h) and refresh-on-change are Phase 4E; the checkpoint labels already exist in the schema.
+* **API.** `GET /api/v1/football/live/fixtures/{id}/forecast` (latest, official, why there is none), `/forecasts` (all versions), `POST .../forecast` (members; stores a version only if something changed). The fixtures list has a `forecast` summary and a `forecast=yes|no` filter.
+* **Existing forecast tracking** (`football_predictions`, drift monitoring) still runs unchanged. Scoring the official version against the final result is Phase 4F.
+
+## Phase 4C: Live Predictions dashboard
+
+Route `/dashboard/sports/live` (sidebar: Live Predictions, directly under Sports; the sidebar now highlights only the most specific entry). Code in `src/components/dashboard/sports/live/`.
+
+* **Tabs:** Today's matches, Upcoming fixtures (next 7 or 30 days), Match intelligence, Prediction history, Completed matches (last 30 days), and a Model performance link to the existing performance laboratory (`/dashboard/sports?tab=football`).
+* **Filters:** competition (Premier League is the only supported one), date, team, match status, model, forecast availability. Team search treats `%` and `_` literally.
+* **Time zone:** kickoffs are formatted in the chosen IANA zone (default: the browser's, remembered in local storage). "Today" and "tomorrow" on the server start at that zone's midnight.
+* **Honesty:** the header says whether a provider key is configured and when the last successful fetch was. With no fixtures it says so and nothing is invented. A stale or failing provider shows a banner with the last verified time. Completed matches compare the result with the official pre-kickoff forecast as a plain comparison (not a stored score; scoring is Phase 4F) and say so when no forecast or no verified score exists.
+* **Match intelligence:** overview, probabilities (with numbers beside the colours), expected goals, over/under 2.5, both teams to score, five likeliest scores, drivers, historical team comparison and head to head, player availability (reported unavailable, nothing assumed), data-quality warnings, version and provider references.
+* **API added:** `window=recent`, `day=YYYY-MM-DD`, `status=completed`, `model`, `GET /football/live/forecast-history`, and a `snapshot` comparison in the forecast detail.
+* **Not yet:** the dedicated match page (4D), live in-play updates (status only changes when fixtures are synchronised, and free-plan scores are delayed).
+
 ## Not included yet
 
-Automated pre-match predictions and refresh checkpoints (4B, 4E), the Live Predictions dashboard and match pages (4C, 4D), result reconciliation (4F), notifications, email and push (4G), lineups, odds, injuries and advanced statistics.
+Refresh checkpoints and change detection from lineups (4E), the dedicated match page (4D), result reconciliation and scoring of official versions (4F), notifications (4G), lineups, odds, injuries and advanced statistics from the provider.

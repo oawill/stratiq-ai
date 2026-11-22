@@ -298,9 +298,9 @@ function MethodologyTab() {
   );
 }
 
-export function SportsWorkspace({ leagues, initialLeague, initialTeam }: { leagues: League[]; initialLeague?: string; initialTeam?: string }) {
+export function SportsWorkspace({ leagues, initialLeague, initialTeam, initialTab }: { leagues: League[]; initialLeague?: string; initialTeam?: string; initialTab?: string }) {
   const [leagueId, setLeagueId] = useState(leagues.find((l) => l.id === initialLeague)?.id ?? leagues[0]?.id ?? "");
-  const [tab, setTab] = useState<"fixtures" | "compare" | "data" | "football" | "method">(initialTeam ? "compare" : "fixtures");
+  const [tab, setTab] = useState<"fixtures" | "compare" | "data" | "football" | "method">(initialTab === "football" || initialTab === "method" ? initialTab : initialTeam ? "compare" : "fixtures");
   const [adv, setAdv] = useAdvanced();
   const league = leagues.find((l) => l.id === leagueId);
   const TABS = [["fixtures", "Fixtures"], ["compare", "Team comparison"], ["data", "Your data"], ["football", "Football intelligence"], ["method", "Methodology & performance"]] as const;

@@ -129,6 +129,9 @@ def run_workspace(conn, workspace_id: str, trigger: str, allow_retrain: bool = T
         if football_provider.configured():       # a provider outage is reported here but never stops the rest of the cycle
             sy = football_sync.sync_workspace(conn, workspace_id, "schedule")
             out["live_sync"] = {k: sy.get(k) for k in ("status", "fetched", "created", "updated", "unchanged", "message")}
+        if football_provider.configured():
+            from . import football_forecast
+            out["live_forecasts"] = football_forecast.generate_pending(conn, workspace_id)
         out["upcoming"] = forecast_upcoming(conn, workspace_id, today=today)
         out["monitor"] = monitor(conn, workspace_id, today)
         out["retrain"] = retrain(conn, workspace_id, False, today) if allow_retrain else {"status": "skipped", "reason": "Another workspace was retrained in this run."}

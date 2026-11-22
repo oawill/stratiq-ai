@@ -6,6 +6,7 @@ import {
   FolderKanban,
   History,
   Landmark,
+  Radio,
   LayoutGrid,
   LineChart,
   CreditCard,
@@ -30,6 +31,7 @@ export interface DashNav {
 export const DASH_NAV: DashNav[] = [
   { label: "Overview", href: "/dashboard", icon: LayoutGrid, keywords: "home summary control center personalized dashboard customize", status: "live" },
   { label: brand.products.sports.name, href: "/dashboard/sports", icon: Activity, keywords: "football soccer match fixtures poisson", status: "live" },
+  { label: "Live Predictions", href: "/dashboard/sports/live", icon: Radio, keywords: "live football fixtures today upcoming kickoff forecast premier league matches history results", status: "live" },
   { label: brand.products.strategy.name, href: "/dashboard/business", icon: Briefcase, keywords: "game theory nash payoff pricing", status: "live" },
   { label: brand.products.politics.name, href: "/dashboard/politics", icon: Landmark, keywords: "coalition voting power policy turnout", status: "live" },
   { label: brand.products.markets.name, href: "/dashboard/finance", icon: LineChart, keywords: "portfolio var risk monte carlo stress expected shortfall", status: "live" },

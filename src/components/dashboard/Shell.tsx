@@ -197,10 +197,12 @@ function Profile({ user }: { user: Props["user"] }) {
 
 function SideNav({ onNavigate, unread }: { onNavigate?: () => void; unread: number }) {
   const path = usePathname();
+  // the most specific entry wins, so a child page (Live Predictions) does not also light up its parent (Sports)
+  const current = DASH_NAV.filter((n) => (n.href === "/dashboard" ? path === n.href : path === n.href || path.startsWith(n.href + "/"))).sort((a, b) => b.href.length - a.href.length)[0]?.href;
   return (
     <nav aria-label="Dashboard" className="flex flex-col gap-0.5 p-3">
       {DASH_NAV.map((n) => {
-        const active = n.href === "/dashboard" ? path === n.href : path.startsWith(n.href);
+        const active = n.href === current;
         return (
           <Fragment key={n.href}>
           {n.href === "/dashboard/history" && <p className="mt-3 px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Workspace tools</p>}
