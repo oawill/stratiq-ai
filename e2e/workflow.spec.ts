@@ -1162,6 +1162,8 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page.getByText(/No forecasts have been stored yet/)).toBeVisible();
     await tabs.getByRole("link", { name: "Completed matches" }).click();
     await expect(page.getByRole("heading", { name: "Last 30 days" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Live forecast record" })).toBeVisible();
+    await expect(page.getByText(/No completed matches have been scored yet/)).toBeVisible();      // nothing is invented before a result exists
     await page.getByText("Automatic forecasts and refresh schedule").click();
     await expect(page.getByText("No scheduler running")).toBeVisible();                 // honest: nothing runs by itself until a scheduler is configured
     await expect(page.getByText("No scheduled matches in the next 7 days.")).toBeVisible();

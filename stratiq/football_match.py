@@ -60,10 +60,12 @@ def _grid(conn, v: dict) -> dict | None:
     return {"max_goals": GRID - 1, "cells": cells, "other": round(max(0.0, 1 - shown), 5), "rho": rho, "full": g}
 
 
-def _evaluation(fx: dict, v: dict | None, grid: dict | None) -> dict | None:
+def _evaluation(fx: dict, v: dict | None, grid: dict | None, stored: dict | None = None) -> dict | None:
     """What happened against the official forecast, for one match. Plain arithmetic on stored values."""
     if fx["status"] not in fp.FINAL:
         return None
+    if fx["status"] == "awarded":
+        return {"available": False, "note": "This result was decided off the pitch rather than played, so the forecast is not scored."}
     if fx["home_goals"] is None or fx["away_goals"] is None:
         return {"available": False, "note": "The match is finished but the provider has not supplied a verified full-time score yet, so it is not evaluated."}
     hg, ag = fx["home_goals"], fx["away_goals"]
@@ -71,9 +73,19 @@ def _evaluation(fx: dict, v: dict | None, grid: dict | None) -> dict | None:
     base = {"final_score": {"home": hg, "away": ag}, "outcome": OUTCOME[actual]}
     if not v or not v["is_official"]:
         return {"available": False, **base, "note": "No official forecast was made before kickoff, so there is nothing to evaluate."}
+    if stored:                                   # the evaluation made by the reconciliation job: the record of truth, including corrections
+        mk = stored["markets"] or {}
+        return {"available": True, **base, "version_no": v["version_no"], "most_likely": OUTCOME[max(range(3), key=lambda i: (v["p_home"], v["p_draw"], v["p_away"])[i])], "most_likely_was_right": stored["correct"],
+                "probability_given_to_outcome": round(stored["p_actual"], 4), "log_loss": round(stored["log_loss"], 4), "brier": round(stored["brier"], 4), "rps": round(stored["rps"], 4),
+                "over_2_5": {"happened": mk["over_2_5"]["happened"], "probability": mk["over_2_5"]["p"]} if "over_2_5" in mk else None,
+                "both_teams_to_score": {"happened": mk["btts"]["happened"], "probability": mk["btts"]["p"]} if "btts" in mk else None,
+                "exact_score": {"in_top_five": mk["exact_score"]["in_top_five"], "probability": mk["exact_score"]["p"]} if "exact_score" in mk else None,
+                "stored": True, "evaluated_at": stored["evaluated_at"], "correction_count": stored["correction_count"],
+                "note": "Scored automatically when the verified result arrived. One match says little about a model: judge models on the live record and the performance laboratory."
+                        + (f" The provider corrected this score {stored['correction_count']} time(s) and the match was re-scored." if stored["correction_count"] else "")}
     p = [v["p_home"], v["p_draw"], v["p_away"]]
     top = max(range(3), key=lambda i: p[i])
-    out = {"available": True, **base, "version_no": v["version_no"], "most_likely": OUTCOME[top], "most_likely_was_right": top == actual, "probability_given_to_outcome": round(p[actual], 4),
+    out = {"available": True, "stored": False, **base, "version_no": v["version_no"], "most_likely": OUTCOME[top], "most_likely_was_right": top == actual, "probability_given_to_outcome": round(p[actual], 4),
            "log_loss": round(-math.log(max(p[actual], 1e-12)), 4), "brier": round(sum((p[i] - (1 if i == actual else 0)) ** 2 for i in range(3)), 4)}
     if v["p_over_2_5"] is not None:
         over = hg + ag > 2
@@ -100,6 +112,7 @@ def build(conn, fx: dict, now: datetime | None = None) -> dict:
     cutoff = snap["cutoff"] if snap else (fx["kickoff_utc"].date() if fx["kickoff_utc"] else fx["fixture_date"])
     home, away = fx["home_team"], fx["away_team"]
     grid = _grid(conn, shown) if shown else None
+    stored_eval = conn.execute("select * from football_prediction_evaluations where fixture_id=%s and voided_at is null", (fx["id"],)).fetchone()
 
     reports = conn.execute("""select team, player, status, from_date, to_date, available_at from football_player_availability where workspace_id=%s and team in (%s,%s)
                               and available_at <= %s and from_date <= %s and (to_date is null or to_date >= %s) order by team, player limit 60""",
@@ -136,7 +149,7 @@ def build(conn, fx: dict, now: datetime | None = None) -> dict:
         "drivers": {"kind": "model", "items": shown["drivers"] if shown else [], "note": "How the model arrived at its numbers; not causes in the real world."},
         "revisions": {"kind": "model", "versions": [ff.present(v) | {"generated_at": v["generated_at"]} for v in reversed(versions)],
                       "status_history": [{"old_status": h["old_status"], "new_status": h["new_status"], "old_kickoff": h["old_kickoff"], "new_kickoff": h["new_kickoff"], "observed_at": h["observed_at"]} for h in hist]},
-        "result": {"kind": "verified", "evaluation": _evaluation(fx, shown if shown and shown["is_official"] else official, grid)} if fx["status"] in fp.FINAL else None,
+        "result": {"kind": "verified", "evaluation": _evaluation(fx, shown if shown and shown["is_official"] else official, grid, stored_eval), "note": fx.get("result_note")} if fx["status"] in fp.FINAL else None,
         "warnings": shown["warnings"] if shown else [],
         "data_completeness": shown["completeness"] if shown else None,
     }

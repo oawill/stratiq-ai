@@ -10,6 +10,7 @@ import { Automation } from "./Automation";
 import { FixtureList } from "./FixtureList";
 import { HistoryTab } from "./HistoryTab";
 import { MatchIntel } from "./MatchIntel";
+import { LiveRecord } from "./Record";
 import { useZone } from "./useZone";
 import { TABS, ZONES, stamp, type TabId } from "./live";
 
@@ -82,7 +83,7 @@ export function LivePredictions({ tab, fixture }: { tab: TabId; fixture?: string
       <div key={`${tab}-${version}-${tz}`}>
         {tab === "today" && <FixtureList mode="today" tz={tz} />}
         {tab === "upcoming" && <FixtureList mode="upcoming" tz={tz} />}
-        {tab === "completed" && <FixtureList mode="completed" tz={tz} />}
+        {tab === "completed" && <div className="space-y-4"><LiveRecord tz={tz} /><FixtureList mode="completed" tz={tz} /></div>}
         {tab === "intel" && <MatchIntel tz={tz} fixtureId={fixture} />}
         {tab === "history" && <HistoryTab tz={tz} fixtureId={fixture} />}
       </div>

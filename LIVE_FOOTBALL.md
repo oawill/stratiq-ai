@@ -95,6 +95,20 @@ Code: `stratiq/football_refresh.py`, migration `0019_live_automation.sql` (dev o
 * **Not available, and not faked:** lineup-triggered refresh (the provider plan supplies no lineups), and live in-play updates beyond fixture status (free-plan scores are delayed).
 * **Observability:** one structured JSON log line per non-idle tick and per failure; non-idle ticks are recorded as `live` job runs; the schedule endpoint (`GET /api/v1/football/live/schedule`) shows each fixture's next refresh, the last run and whether a scheduler is configured.
 
+## Phase 4F: result reconciliation and performance
+
+Code: `stratiq/football_results.py`, `stratiq/football_performance.py`, migration `0020_result_reconciliation.sql` (dev only), the scheduled tick, `Record.tsx`.
+
+* **What reconciliation does,** once per fixture and score, when the provider reports a fixture `finished` with a full-time score: records the score in `football_result_history`; adds the match to `match_history` (source `football-data.org`) so every later forecast, rating and the performance laboratory use it; scores the official pre-kickoff forecast in `football_prediction_evaluations` (log loss, Brier, ranked probability score, whether the likeliest result happened, over 2.5, both teams to score, exact score, goal error); feeds the same forecast and result into the existing tracking tables (`football_predictions` and outcomes) so drift monitoring and the laboratory see them; and refreshes the club registry. Ratings are recomputed from `match_history` at forecast time, so nothing separate is stored.
+* **What it refuses to score:** scheduled, live, postponed, suspended and cancelled matches; "awarded" results (decided off the pitch, not played); finished matches with no verified score; and a result reported finished less than an hour after kickoff.
+* **Idempotent.** One evaluation per forecast version; running again changes nothing. A fixture records the score it was last reconciled with, so only new or changed results are processed.
+* **Corrections.** If the provider changes a score, the change is a new revision in the result history, the match is re-scored (same evaluation row, correction count up by one), `match_history` is updated, and the tracking tables are re-scored, not duplicated. If a different score for the same match is already stored from an upload, nothing is overwritten or scored; the fixture is flagged for a person. If the provider withdraws a result (the match is no longer finished) the evaluation is voided, the provider-sourced history row and tracking outcome are removed, and a later reinstatement scores it again.
+* **No official forecast:** the result still reaches the match history, but nothing is scored.
+* **Live record** (`GET /api/v1/football/live/performance`, shown on the Completed matches tab): overall and per-model scores, calibration of the home-win forecast, best and worst forecasts, and a comparison with a forecast of one third each (log loss ln 3 = 1.099, Brier 0.667; the ranked probability score of that forecast depends on the results, so it is compared per match). With fewer than 30 matches it says that very little can be concluded.
+* **Reports.** A daily summary (last full UTC day) and a weekly report (last full Monday to Sunday) are created once, only if something was scored, by the scheduled tick (`GET /api/v1/football/live/performance/reports`). They are stored in-app; notification of them is Phase 4G.
+* **Manual check:** `POST /api/v1/football/live/fixtures/{id}/reconcile` (members).
+* **Not done:** a result reaching `match_history` does not itself force an immediate re-forecast of upcoming matches involving those clubs; they pick it up at their next checkpoint.
+
 ## Not included yet
 
-Daily and weekly performance reports and result reconciliation with stored evaluations (4F); notifications for new fixtures, probability changes, results and provider failures (4G)
+Notifications (new fixtures, new predictions, significant probability changes, results, evaluations, provider failures, data-quality issues) with optional email and push adapters (4G); lineups, odds, injuries and advanced statistics from the provider.

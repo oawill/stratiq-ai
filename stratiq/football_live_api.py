@@ -15,8 +15,10 @@ from pydantic import BaseModel, Field
 
 from . import football_forecast as ff
 from . import football_match as fmatch
+from . import football_performance as perf
 from . import football_provider as fp
 from . import football_refresh as fr
+from . import football_results as fres
 from . import football_sync as sync
 from .db import get_conn
 from .security import Auth, require_write
@@ -301,3 +303,35 @@ def schedule(p: Auth, conn=Depends(get_conn), limit: int = Query(20, ge=1, le=50
             "scheduler_configured": len(os.environ.get("CRON_SECRET", "")) >= 16, "provider_configured": fp.configured(),
             "fixture_sync_every_minutes": {"normal": int(normal.total_seconds() // 60), "around_kickoff": int(live.total_seconds() // 60)},
             "note": "Automation runs only when a scheduler calls it. Until then nothing refreshes by itself; a person can still request a forecast from the match page."}
+
+
+@router.get("/performance")
+def performance(p: Auth, conn=Depends(get_conn), days: int = Query(0, ge=0, le=3650), model: str | None = Query(None)):
+    """How the official pre-kickoff forecasts scored against verified results. `days=0` means all time."""
+    if model and model not in MODELS:
+        raise HTTPException(422, f"model must be one of {', '.join(MODELS)}.")
+    since = sync.utcnow() - timedelta(days=days) if days else None
+    return {"days": days or None, **perf.summary(conn, p.workspace_id, since, None, model)}
+
+
+@router.get("/performance/reports")
+def performance_reports(p: Auth, conn=Depends(get_conn), period: str | None = Query(None, pattern="^(daily|weekly)$"), limit: int = Query(10, ge=1, le=50), offset: int = Query(0, ge=0, le=500)):
+    """Daily summaries and weekly reports, newest first. They are created only for periods in which something was scored."""
+    where, args = ["workspace_id=%s"], [p.workspace_id]
+    if period:
+        where.append("period=%s")
+        args.append(period)
+    sql = " and ".join(where)
+    total = conn.execute(f"select count(*) n from football_performance_reports where {sql}", args).fetchone()["n"]
+    rows = conn.execute(f"select id, period, window_start, window_end, summary, created_at from football_performance_reports where {sql} order by window_end desc limit %s offset %s", [*args, limit, offset]).fetchall()
+    return {"reports": rows, "total": total}
+
+
+@router.post("/fixtures/{fixture_id}/reconcile")
+def reconcile_now(fixture_id: str, p: Auth, conn=Depends(get_conn)):
+    """Check one fixture's result now (members). Does nothing unless the provider has reported it finished with a verified score; safe to repeat."""
+    require_write(p)
+    f = _fixture(conn, p, fixture_id)
+    out = fres.reconcile_fixture(conn, f, sync.utcnow())
+    conn.execute("insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'football.live_reconcile',%s)", (p.workspace_id, p.user_id, json.dumps({"fixture_id": str(f["id"]), "result": out["status"]})))
+    return out

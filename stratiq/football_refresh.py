@@ -19,7 +19,9 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from . import football_forecast as ff
+from . import football_performance as perf
 from . import football_provider as fp
+from . import football_results as results
 from . import football_sync as sync
 
 DEFAULT_CHECKPOINTS = (2880, 1440, 360, 60)
@@ -205,10 +207,13 @@ def tick_workspace(conn, wid: str, now: datetime | None = None, deadline: float 
         out["sync"] = {k: r.get(k) for k in ("status", "fetched", "created", "updated", "unchanged", "message")}
         if r.get("job_id") and cfg["auto_forecast"] and r.get("status") == "complete":
             out["rescheduled"] = refresh_rescheduled(conn, wid, r["job_id"], now, loaded)
+    out["results"] = results.reconcile_workspace(conn, wid, now)           # finished matches: score the official forecast, update history and tracking
+    # the previous day's and week's reports are made in the morning (UTC) or as soon as results arrive; they exist once and only when something was scored
+    out["reports"] = perf.make_reports(conn, wid, now) if now.hour < 12 or out["results"]["evaluated"] else {"created": []}
     if cfg["auto_forecast"]:
         out["first_forecasts"] = ff.generate_pending(conn, wid, now, loaded=loaded)
         out["checkpoints"] = refresh_checkpoints(conn, wid, now, cfg["checkpoint_minutes"], loaded, deadline)
-    acted = any((out.get("sync") or {}).get(k) for k in ("created", "updated")) or (out.get("rescheduled") or {}).get("created") or (out.get("first_forecasts") or {}).get("created") \
+    acted = any(out["results"].get(k) for k in ("evaluated", "no_forecast", "voided", "conflict", "errors")) or bool(out["reports"]["created"]) or any((out.get("sync") or {}).get(k) for k in ("created", "updated")) or (out.get("rescheduled") or {}).get("created") or (out.get("first_forecasts") or {}).get("created") \
         or any((out.get("checkpoints") or {}).get(k) for k in ("created", "failed")) or (out.get("sync") or {}).get("status") == "failed"
     out["status"] = "failed" if (out.get("sync") or {}).get("status") == "failed" else "acted" if acted else "idle"
     if out["status"] != "idle":
