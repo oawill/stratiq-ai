@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { logout } from "@/app/(auth)/actions";
 import { Badge, PageTitle, Panel } from "@/components/dashboard/ui";
 import { Button } from "@/components/ui/primitives";
+import { PreferencesPanel } from "@/components/dashboard/settings/PreferencesPanel";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -20,6 +21,10 @@ export default async function Page() {
             <div className="flex justify-between"><dt className="text-muted">Role</dt><dd>{s.role}</dd></div>
           </dl>
           <p className="mt-4 flex items-center gap-2 text-xs text-muted">Editing profile and password <Badge tone="muted">Coming soon</Badge></p>
+        </Panel>
+        <PreferencesPanel />
+        <Panel title="Overview layout">
+          <p className="text-sm text-muted">Show, hide, reorder and restore the sections of your overview with the Customize button on the <a href="/dashboard" className="text-violet underline">Overview</a> page.</p>
         </Panel>
         <Panel title="Session">
           <form action={logout}><Button type="submit" variant="secondary">Sign out</Button></form>

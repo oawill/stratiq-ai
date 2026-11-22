@@ -84,7 +84,8 @@ def test_unknown_clubs_are_rejected_and_the_list_is_capped(client, conn, ws):
     wl.MAX_ITEMS = len(teams)
     try:
         conn.execute("insert into watchlist_items (workspace_id, user_id, kind, item_key, label) select workspace_id, user_id, 'team', 'x', 'x' from watchlist_items limit 1")
-        assert api(client, h, "POST", "watchlists", {"kind": "team", "team": teams[0]}).status_code == 422
+        assert api(client, h, "POST", "watchlists", {"kind": "competition"}).status_code == 422      # a new item is refused at the cap
+        assert api(client, h, "POST", "watchlists", {"kind": "team", "team": teams[0]}).status_code == 201   # re-adding a watched one just updates it
     finally:
         wl.MAX_ITEMS = monkey
 

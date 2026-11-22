@@ -339,6 +339,10 @@ from .watchlist_api import router as watchlist_router  # noqa: E402
 from .reports_api import router as reports_router  # noqa: E402
 from .simlab_api import router as simlab_router  # noqa: E402
 from .analyst_api import router as analyst_router  # noqa: E402
+from .preferences_api import router as preferences_router  # noqa: E402
+from .notifications_api import router as notifications_router  # noqa: E402
+from .briefings_api import router as briefings_router  # noqa: E402
+from .control_center_api import router as control_center_router  # noqa: E402
 
 app.include_router(router)
 app.include_router(business_router)
@@ -359,3 +363,7 @@ app.include_router(watchlist_router)
 app.include_router(reports_router)
 app.include_router(simlab_router)
 app.include_router(analyst_router)
+app.include_router(preferences_router)
+app.include_router(notifications_router)
+app.include_router(briefings_router)
+app.include_router(control_center_router)

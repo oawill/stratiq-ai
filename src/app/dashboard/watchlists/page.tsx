@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Watchlists" };
 export default function Page() {
   return (
     <>
-      <PageTitle title="Watchlists" sub="Keep an eye on Premier League clubs and upcoming fixtures from your imported data. Your list is private to you; statuses are calculated from your own imports, not a live feed." />
+      <PageTitle title="Watchlists" sub="Follow clubs, fixtures and competitions from your imported data, and keep your own notes on companies, indicators, elections and instruments. Your list is private to you; sports statuses are calculated from your own imports, not a live feed." />
       <WatchlistClient />
     </>
   );

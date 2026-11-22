@@ -297,7 +297,10 @@ test("landing page leads to a working account and every module", async ({ page }
   await test.step("sign up and reach the dashboard", async () => {
     await signUp(page);
     await expect(page.getByRole("heading", { name: /Welcome, E2E/ })).toBeVisible();
-    await expect(page.getByText("Models registered", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Customize" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tracked items" })).toBeVisible();
+    await expect(page.getByText(/Nothing is tracked in your chosen domains yet/)).toBeVisible();      // a new workspace sees helpful empty states, not invented figures
+    await expect(page.getByText(/No alerts are switched on, so none are created/)).toBeVisible();
   });
 
   await test.step("dashboard shows the VELQORIN product names and no previous brand", async () => {
@@ -1065,6 +1068,78 @@ test("football intelligence: each data type shows its own requirements, then for
     expect(download.suggestedFilename()).toMatch(/^evidence-report-\d{4}-\d{2}-\d{2}\.md$/);
     await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Watchlists" })).toBeVisible();
   });
+
+  await test.step("control center: customise the overview, and the layout persists and restores", async () => {
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "Quick actions" })).toBeVisible();
+    await page.getByRole("button", { name: "Customize" }).click();
+    await page.getByLabel("Quick actions", { exact: true }).uncheck();
+    await page.getByRole("button", { name: "Move Alerts up" }).click();
+    await page.getByRole("button", { name: "Save layout" }).click();
+    await expect(page.getByText("Layout saved.")).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Quick actions" })).toHaveCount(0);                     // stored per person, not per browser tab
+    await page.getByRole("button", { name: "Customize" }).click();
+    await expect(page.getByLabel("Quick actions", { exact: true })).not.toBeChecked();
+    await page.getByRole("button", { name: "Restore default" }).click();
+    await expect(page.getByText("Default layout restored.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Quick actions" })).toBeVisible();
+  });
+
+  await test.step("watchlists: items from every domain, labelled honestly where no data feed exists", async () => {
+    await page.goto("/dashboard/watchlists");
+    await page.getByLabel("Domain", { exact: true }).first().selectOption("business");
+    await page.getByLabel("Name").fill("Acme Corp");
+    await page.getByRole("button", { name: "Add to watchlist" }).click();
+    const card = page.getByRole("list", { name: "Watchlist" }).getByRole("listitem").first();
+    await expect(card.getByText("Acme Corp")).toBeVisible();
+    await expect(card.getByText(/No data feed is connected for companies/)).toBeVisible();
+    await page.getByRole("button", { name: "Edit note and group for Acme Corp" }).click();
+    await card.getByLabel("Note", { exact: true }).fill("Pricing rival");
+    await card.getByRole("button", { name: "Save" }).click();
+    await expect(card.getByText("Your note: Pricing rival")).toBeVisible();
+    await page.getByLabel("Search", { exact: true }).fill("acme");
+    await expect(page.getByRole("list", { name: "Watchlist" }).getByRole("listitem")).toHaveCount(1);
+    await page.getByRole("button", { name: "Remove Acme Corp from watchlist" }).click();
+    await expect(page.getByText(/Your watchlist is empty|Nothing matches those filters/)).toBeVisible();
+  });
+
+  await test.step("notifications: nothing exists until an alert is switched on, and nothing is sent outside the app", async () => {
+    await page.goto("/dashboard/notifications");
+    await expect(page.getByRole("heading", { name: "Notifications", exact: true })).toBeVisible();
+    await expect(page.getByText(/No alerts are switched on, so there is nothing here/)).toBeVisible();
+    await expect(page.getByText(/Nothing is sent by email or push/)).toBeVisible();
+    await page.getByRole("button", { name: "Switch on the suggested alerts" }).click();
+    await expect(page.getByLabel("A result for a club you watch")).toBeChecked();
+    await expect(page.getByLabel("Model drift or retraining due")).not.toBeChecked();
+    await page.getByLabel("A forecast you saved was scored").click();
+    await expect(page.getByLabel("A forecast you saved was scored")).not.toBeChecked();
+    await expect(page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: /Notifications/ })).toBeVisible();
+  });
+
+  await test.step("briefings and the saved-intelligence library", async () => {
+    await page.goto("/dashboard/reports?tab=briefings");
+    await expect(page.getByText("No briefings yet. Generate one above.")).toBeVisible();
+    await page.getByRole("button", { name: "Generate briefing" }).click();
+    await expect(page.getByRole("list", { name: "Briefings" }).getByRole("listitem")).toHaveCount(1);
+    await expect(page.getByText(/Observed|observed/).first()).toBeVisible();
+    await page.goto("/dashboard/reports?tab=library");
+    await expect(page.getByRole("list", { name: "Saved intelligence" })).toBeVisible();
+    await page.getByLabel("Search titles").fill("zzz-no-such-item");
+    await expect(page.getByText("Nothing matches those filters.")).toBeVisible();
+  });
+
+  await test.step("settings: preferences are saved and say that notifications stay in the app", async () => {
+    await page.goto("/dashboard/settings");
+    await expect(page.getByText(/nothing is ever sent outside the app/)).toBeVisible();
+    await page.getByLabel("Hold notifications back during these hours").check();
+    await page.getByLabel("Generate a briefing automatically").selectOption("weekly");
+    await page.getByRole("button", { name: "Save preferences" }).click();
+    await expect(page.getByText("Preferences saved.")).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Hold notifications back during these hours")).toBeChecked();
+    await expect(page.getByLabel("Generate a briefing automatically")).toHaveValue("weekly");
+  });
 });
 
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {
@@ -1079,7 +1154,7 @@ test("the dashboard is usable on a phone without horizontal scrolling", async ({
   await page.getByRole("link", { name: "VELQORIN Strategy" }).click();
   await expect(page).toHaveURL(/\/dashboard\/business/);
   await expect(page.getByText(/only pure Nash equilibrium/)).toBeVisible();
-  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/reports", "/dashboard/analyst"]) {
+  for (const path of ["/", "/dashboard", "/dashboard/business", "/dashboard/politics", "/dashboard/finance", "/dashboard/simulations", "/dashboard/workspace", "/dashboard/data", "/dashboard/watchlists", "/dashboard/notifications", "/dashboard/reports", "/dashboard/analyst"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     const { overflow, culprits } = await page.evaluate(() => {
