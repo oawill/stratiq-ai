@@ -361,3 +361,123 @@ def test_deleting_a_workspace_removes_its_forecasts_cleanly(conn, ws):
     conn.execute("select set_config('stratiq.allow_prediction_delete','on',true)")
     conn.execute("delete from workspaces where id=%s", (wid,))
     assert conn.execute("select count(*) n from football_prediction_versions where workspace_id=%s", (wid,)).fetchone()["n"] == 0
+
+
+# ---- Phase 4D: the match page -------------------------------------------------------------------------------------------------------
+
+def match(client, h, fid):
+    r = client.get(f"/api/v1/football/live/fixtures/{fid}/match", headers=h)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_match_page_has_every_section_labelled_by_kind(client, conn, ws):
+    h, wid = ws
+    fx = add_fixture(conn, wid)
+    ff.generate_version(conn, fx, "discovery", "First.", NOW)
+    m = match(client, h, fx["id"])
+    kinds = {k: m[k]["kind"] for k in ("fixture", "forecast", "form", "venue_performance", "head_to_head", "goals", "availability", "drivers", "revisions")}
+    assert kinds == {"fixture": "verified", "forecast": "model", "form": "historical", "venue_performance": "historical", "head_to_head": "historical", "goals": "model",
+                     "availability": "verified", "drivers": "model", "revisions": "model"}
+    assert set(m["kinds"]) == {"historical", "verified", "model"} and m["result"] is None
+    f = m["fixture"]
+    assert (f["home_team"], f["away_team"], f["status"], f["forecastable"]) == (HOME, AWAY, "scheduled", True)
+    v = m["forecast"]["version"]
+    assert v["official"] and round(sum(v["percent"].values()), 1) == 100.0 and m["forecast"]["versions"] == 1 and m["data_completeness"]["of"] == 13 and m["warnings"]
+
+
+def test_match_page_history_is_dated_before_the_cutoff_and_between_the_two_clubs(client, conn, ws):
+    h, wid = ws
+    fx = add_fixture(conn, wid)
+    ff.generate_version(conn, fx, "discovery", "First.", NOW)
+    # a meeting dated today must not appear: it is not known before the forecast's cutoff
+    post(client, h, "import", {"filename": "E0.csv", "combined": True, "csv": five_csv([(NOW.date(), HOME, AWAY, 4, 4)])})
+    m = match(client, h, fx["id"])
+    cutoff = m["form"]["cutoff"]
+    assert cutoff == str(NOW.date())
+    meetings = m["head_to_head"]["meetings"]
+    assert meetings and all({x["home_team"], x["away_team"]} == {HOME, AWAY} and x["date"] < cutoff for x in meetings)
+    assert [x["date"] for x in meetings] == sorted((x["date"] for x in meetings), reverse=True)
+    for side in ("home", "away"):
+        rec = m["form"]["recent"][side]
+        assert 1 <= len(rec) <= 5 and all(r["date"] < cutoff and r["result"] in "WDL" for r in rec) and [r["date"] for r in rec] == sorted((r["date"] for r in rec), reverse=True)
+    vp = m["venue_performance"]
+    assert vp["home_team_at_home"]["played"] > 0 and vp["away_team_away"]["played"] > 0
+    assert m["form"]["summary"]["home"]["elo"] > 0 and m["form"]["summary"]["away"]["elo"] > 0 and m["form"]["summary"]["home"]["matches_played"] >= 5
+
+
+def test_score_distribution_is_consistent_with_the_stored_forecast(client, conn, ws):
+    h, wid = ws
+    fx = add_fixture(conn, wid)
+    ff.generate_version(conn, fx, "discovery", "First.", NOW)
+    g = match(client, h, fx["id"])["goals"]
+    cells = g["score_grid"]["cells"]
+    assert len(cells) == 6 and all(len(r) == 6 for r in cells) and abs(sum(map(sum, cells)) + g["score_grid"]["other"] - 1) < 1e-3
+    top = g["top_scorelines"][0]
+    assert abs(cells[top["home"]][top["away"]] - top["p"]) < 1e-3                          # the grid reproduces the stored most likely score
+    assert g["expected"]["home"] > 0 and g["provider_xg"] is None and "Dixon-Coles" in g["note"]
+
+
+def test_a_finished_match_is_evaluated_against_the_official_forecast(client, conn, ws):
+    import math
+    h, wid = ws
+    fx = played(conn, wid, HOME, AWAY, 3, (2, 1))
+    m = match(client, h, fx["id"])
+    ev = m["result"]["evaluation"]
+    off = versions(conn, fx["id"])[0]
+    assert ev["available"] and ev["outcome"] == "home" and ev["final_score"] == {"home": 2, "away": 1} and ev["version_no"] == 1
+    assert abs(ev["log_loss"] - (-math.log(off["p_home"]))) < 1e-3
+    assert abs(ev["brier"] - ((off["p_home"] - 1) ** 2 + off["p_draw"] ** 2 + off["p_away"] ** 2)) < 1e-3
+    assert ev["over_2_5"]["happened"] is True and ev["both_teams_to_score"]["happened"] is True and "exact_score" in ev and "not stored" in ev["note"]
+    assert m["fixture"]["status"] == "finished" and m["fixture"]["final_score"] == {"home": 2, "away": 1}
+
+
+def test_evaluation_says_so_when_there_is_nothing_to_evaluate(client, conn, ws):
+    h, wid = ws
+    no_forecast = played(conn, wid, HOME, AWAY, 3, (1, 0), forecast=False)
+    assert "nothing to evaluate" in match(client, h, no_forecast["id"])["result"]["evaluation"]["note"]
+    no_score = played(conn, wid, OTHERS[0], OTHERS[1], 4, (1, 0))
+    conn.execute("update football_fixtures set home_goals=null, away_goals=null where id=%s", (no_score["id"],))
+    ev = match(client, h, no_score["id"])["result"]["evaluation"]
+    assert ev["available"] is False and "full-time score" in ev["note"]
+    postponed = add_fixture(conn, wid, home=OTHERS[2], away=OTHERS[3], status="postponed")
+    m = match(client, h, postponed["id"])
+    assert m["result"] is None and m["forecast"]["version"] is None and "postponed" in m["forecast"]["no_forecast_reason"] and m["fixture"]["forecastable"] is False
+
+
+def test_revision_history_lists_versions_newest_first_with_status_changes(client, conn, ws):
+    h, wid = ws
+    fx = add_fixture(conn, wid)
+    ff.generate_version(conn, fx, "discovery", "First.", NOW)
+    moved = fx["kickoff_utc"] + timedelta(hours=26)
+    conn.execute("update football_fixtures set kickoff_utc=%s, fixture_date=%s where id=%s", (moved, moved.date(), fx["id"]))
+    conn.execute("insert into football_fixture_status_history (workspace_id, fixture_id, old_status, new_status, old_kickoff, new_kickoff) values (%s,%s,'scheduled','scheduled',%s,%s)", (wid, fx["id"], fx["kickoff_utc"], moved))
+    ff.generate_version(conn, conn.execute("select * from football_fixtures where id=%s", (fx["id"],)).fetchone(), "reschedule", "Moved.", NOW + timedelta(hours=1))
+    r = match(client, h, fx["id"])["revisions"]
+    assert [v["version_no"] for v in r["versions"]] == [2, 1] and [v["official"] for v in r["versions"]] == [True, False] and r["versions"][0]["change_from_previous"]["previous_version"] == 1
+    assert len(r["status_history"]) == 1 and r["status_history"][0]["new_kickoff"]
+
+
+def test_availability_reports_are_shown_only_when_dated_and_current(client, conn, ws):
+    h, wid = ws
+    fx = add_fixture(conn, wid)
+    ff.generate_version(conn, fx, "discovery", "First.", NOW)
+    assert match(client, h, fx["id"])["availability"]["status"] == "unavailable"
+    ins = "insert into football_player_availability (workspace_id, team, player, status, from_date, to_date, available_at) values (%s,%s,%s,%s,%s,%s,%s)"
+    conn.execute(ins, (wid, HOME, "Test Player", "injured", NOW.date() - timedelta(days=2), None, NOW - timedelta(days=1)))
+    conn.execute(ins, (wid, AWAY, "Reported Later", "suspended", NOW.date() - timedelta(days=2), None, NOW + timedelta(days=1)))          # not known yet
+    a = match(client, h, fx["id"])["availability"]
+    assert a["status"] == "reported" and [r["player"] for r in a["reports"]] == ["Test Player"]
+
+
+def test_match_page_access_rules(client, conn, ws):
+    h, wid = ws
+    fx = add_fixture(conn, wid)
+    url = f"/api/v1/football/live/fixtures/{fx['id']}/match"
+    assert client.get(url, headers=hdr(make_user(conn, role="viewer", workspace_id=wid)[0], wid, exp_in=900)).status_code == 200
+    ou, ow = make_user(conn)
+    assert client.get(url, headers=hdr(ou, ow, exp_in=900)).status_code == 404
+    assert client.get("/api/v1/football/live/fixtures/nonsense/match", headers=h).status_code == 404
+    assert client.get(url).status_code in (401, 403)
+    unforecast = match(client, h, fx["id"])
+    assert unforecast["forecast"]["version"] is None and unforecast["goals"]["score_grid"] is None and unforecast["drivers"]["items"] == [] and unforecast["form"]["summary"] is None

@@ -31,7 +31,7 @@ function Row({ f, tz }: { f: Fixture; tz: string }) {
           </div>
           <p className="mt-0.5 text-xs text-muted">{kickoff(f.kickoff_utc, tz)}{f.matchday ? ` · Matchday ${f.matchday}` : ""}{f.venue ? ` · ${f.venue}` : ""}</p>
         </div>
-        <Link href={`/dashboard/sports/live?tab=intel&fixture=${f.id}`} className="shrink-0 text-xs font-semibold text-violet underline" aria-label={`Match intelligence for ${f.home_team} v ${f.away_team}`}>Match intelligence</Link>
+        <Link href={`/dashboard/sports/football/matches/${f.id}`} className="shrink-0 text-xs font-semibold text-violet underline" aria-label={`Match intelligence for ${f.home_team} v ${f.away_team}`}>Match intelligence</Link>
       </div>
       {f.forecast ? (
         <div className="mt-2 max-w-md">

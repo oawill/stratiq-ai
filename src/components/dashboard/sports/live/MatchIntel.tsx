@@ -161,7 +161,7 @@ export function MatchIntel({ tz, fixtureId }: { tz: string; fixtureId?: string }
               <p className="mt-2 text-[11px] text-muted">Version {d.latest.version_no}, {d.latest.checkpoint}: {d.latest.refresh_reason} Fixture from {d.latest.provider_refs.fixture_provider ?? "an uploaded file"}{d.latest.provider_refs.provider_fixture_id ? ` (id ${d.latest.provider_refs.provider_fixture_id})` : ""}; results history as of {d.latest.provider_refs.results_history_as_of ?? "unknown"}. {d.latest.label}</p>
             </Panel>
           )}
-          <p className="text-xs text-muted">Status: {STATUS_LABEL[d.status] ?? d.status}. <Link href={`/dashboard/sports/live?tab=history&fixture=${d.fixture_id}`} className="text-violet underline">See every stored version</Link></p>
+          <p className="text-xs text-muted">Status: {STATUS_LABEL[d.status] ?? d.status}. <Link href={`/dashboard/sports/football/matches/${d.fixture_id}`} className="font-semibold text-violet underline">Open the full match page</Link> · <Link href={`/dashboard/sports/live?tab=history&fixture=${d.fixture_id}`} className="text-violet underline">See every stored version</Link></p>
         </>
       )}
     </div>

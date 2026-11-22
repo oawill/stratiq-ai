@@ -163,7 +163,7 @@ def generate_pending(conn, workspace_id: str, now: datetime | None = None, days:
         if time.monotonic() - start > max_seconds:
             out["deferred"] = len(fx) - i
             break
-        r = generate_version(conn, f, "discovery", "First forecast after the fixture was discovered.", now, loaded)
+        r = generate_version(conn, f, "discovery", "The fixture was discovered.", now, loaded)
         if r["status"] == "created":
             out["created"] += 1
         elif r["status"] == "ineligible":

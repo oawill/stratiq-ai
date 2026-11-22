@@ -50,7 +50,7 @@ export function HistoryTab({ tz, fixtureId }: { tz: string; fixtureId?: string }
               {data.versions.map((v) => (
                 <li key={v.id} className="py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/dashboard/sports/live?tab=intel&fixture=${v.fixture_id}`} className="font-semibold hover:text-violet">{v.home_team} v {v.away_team}</Link>
+                    <Link href={`/dashboard/sports/football/matches/${v.fixture_id}`} className="font-semibold hover:text-violet">{v.home_team} v {v.away_team}</Link>
                     {v.final_score && <span className="font-mono text-sm">{v.final_score.home}–{v.final_score.away}</span>}
                     <StatusBadge status={v.fixture_status} />
                     <Badge tone="muted">Version {v.version_no}</Badge>{v.official && <Badge tone="green">Official</Badge>}<ModelBadge model={v.model} />

@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from . import football_forecast as ff
+from . import football_match as fmatch
 from . import football_provider as fp
 from . import football_sync as sync
 from .db import get_conn
@@ -187,6 +188,12 @@ def forecast(fixture_id: str, p: Auth, conn=Depends(get_conn)):
         snap = comparison(sn) if sn else None
     return {"fixture_id": str(f["id"]), "status": f["status"], "snapshot": snap, "latest": ff.present(latest) if latest else None, "official": ff.present(official) if official else None, "versions": n,
             "no_forecast_reason": why, "official_note": "The official evaluation forecast is the last one made before kickoff; it is the one scored once the result is known."}
+
+
+@router.get("/fixtures/{fixture_id}/match")
+def match_page(fixture_id: str, p: Auth, conn=Depends(get_conn)):
+    """Everything the match page shows, in sections labelled historical, verified or model estimate."""
+    return fmatch.build(conn, _fixture(conn, p, fixture_id), sync.utcnow())
 
 
 @router.get("/fixtures/{fixture_id}/forecasts")

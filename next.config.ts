@@ -49,7 +49,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     // The four per-domain pages were folded into the home page carousel: /sports is slide 1 of /, and so on.
     const slides = ["sports", "business", "politics", "finance"].map((s) => ({ source: `/${s}`, destination: `/#${s}`, permanent: true }));
-    return [...slides, { source: "/dashboard/simlab", destination: "/dashboard/simulations", permanent: false }, ...legacyHostRedirects()];
+    return [...slides, { source: "/dashboard/simlab", destination: "/dashboard/simulations", permanent: false },
+      { source: "/sports/football/matches/:id", destination: "/dashboard/sports/football/matches/:id", permanent: false },   // the dashboard enforces sign-in
+      ...legacyHostRedirects()];
   },
   turbopack: {
     rules: {

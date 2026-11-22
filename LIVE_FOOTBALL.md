@@ -74,6 +74,16 @@ Route `/dashboard/sports/live` (sidebar: Live Predictions, directly under Sports
 * **API added:** `window=recent`, `day=YYYY-MM-DD`, `status=completed`, `model`, `GET /football/live/forecast-history`, and a `snapshot` comparison in the forecast detail.
 * **Not yet:** the dedicated match page (4D), live in-play updates (status only changes when fixtures are synchronised, and free-plan scores are delayed).
 
+## Phase 4D: match intelligence page
+
+Route `/dashboard/sports/football/matches/[fixtureId]` (the suggested public-style path `/sports/football/matches/[id]` redirects to it, and the dashboard enforces sign-in). Code: `stratiq/football_match.py`, `GET /api/v1/football/live/fixtures/{id}/match`, `MatchPage.tsx`.
+
+* **Sections A to J:** overview, home/draw/away forecast, team form comparison (with each side's last five results), home and away performance, head-to-head (summary and the meetings themselves), expected goals and score distribution (a 6 by 6 table of scoreline chances rebuilt from the stored expected goals and the model's recorded dependence setting), player availability, key drivers with data-quality warnings, forecast revision history (every version plus fixture status and kickoff changes), and final result and evaluation.
+* **Three labels on every section:** *Historical statistics* (computed from imported results dated before the forecast's cutoff), *Current verified information* (supplied by the provider or a dated upload) and *Model estimate*. A legend sits at the top of the page.
+* **Availability:** reports are shown only from a dated upload that was already known (`available_at` not in the future); otherwise the page says none exists and assumes nothing.
+* **Evaluation:** for a finished match with a verified score and an official forecast, the page shows the outcome, the probability the forecast gave it, log loss, Brier score, over 2.5, both teams to score and the exact score. These are arithmetic on stored values for one match, are not stored, and the page says one match says little about a model. With no official forecast or no verified score it says so instead.
+* **Themes:** the application itself has only a dark theme (`color-scheme: dark`); there is no Light or System switch in this codebase, so none of this work can be checked in them. Adding themes would be its own piece of work.
+
 ## Not included yet
 
-Refresh checkpoints and change detection from lineups (4E), the dedicated match page (4D), result reconciliation and scoring of official versions (4F), notifications (4G), lineups, odds, injuries and advanced statistics from the provider.
+Refresh checkpoints and change detection from lineups (4E), result reconciliation and scoring of official versions (4F), notifications (4G), lineups, odds, injuries and advanced statistics from the provider.

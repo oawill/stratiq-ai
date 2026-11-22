@@ -1169,6 +1169,16 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page).toHaveURL(/\/dashboard\/sports\?tab=football/);
     await expect(page.getByRole("tab", { name: "Football intelligence" })).toHaveAttribute("aria-selected", "true");
   });
+
+  await test.step("match page: unknown fixtures are reported, not invented, and a malformed id is a 404", async () => {
+    await page.goto("/dashboard/sports/football/matches/00000000-0000-4000-8000-000000000000");
+    await expect(page.getByText("Fixture not found")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Live Predictions" })).toBeVisible();
+    const res = await page.goto("/dashboard/sports/football/matches/not-an-id");
+    expect(res?.status()).toBe(404);
+    await page.goto("/sports/football/matches/00000000-0000-4000-8000-000000000000");
+    await expect(page).toHaveURL(/\/dashboard\/sports\/football\/matches\//);
+  });
 });
 
 test("the dashboard is usable on a phone without horizontal scrolling", async ({ browser }) => {

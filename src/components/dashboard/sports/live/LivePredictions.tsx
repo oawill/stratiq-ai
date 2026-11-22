@@ -9,29 +9,18 @@ import { field } from "../../analysis";
 import { FixtureList } from "./FixtureList";
 import { HistoryTab } from "./HistoryTab";
 import { MatchIntel } from "./MatchIntel";
-import { TABS, ZONES, stamp, validZone, type TabId } from "./live";
+import { useZone } from "./useZone";
+import { TABS, ZONES, stamp, type TabId } from "./live";
 
 interface Provider { configured: boolean; provider: string; rate_limit_per_minute: number; health: { last_success_at: string | null; last_failure_at: string | null; consecutive_failures: number; last_error: string | null }; note: string; capabilities: Record<string, boolean | string> }
-const ZONE_KEY = "velqorin.live.timezone";
 
 /** The Live Predictions workspace: tabs, a time-zone choice shared by every tab, and an honest provider status line. */
 export function LivePredictions({ tab, fixture }: { tab: TabId; fixture?: string }) {
-  const [tz, setTz] = useState("UTC");
+  const [tz, changeZone] = useZone();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    // Browser time zone (or the person's last choice) is applied after mount so the server and first client render agree.
-    let saved: string | null = null;
-    try { saved = window.localStorage.getItem(ZONE_KEY); } catch { /* storage unavailable */ }
-    const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const pick = validZone(saved) ? saved : validZone(browser) ? browser : "UTC";
-    const t = setTimeout(() => setTz(pick), 0);
-    return () => clearTimeout(t);
-  }, []);
-  const changeZone = (z: string) => { setTz(z); try { window.localStorage.setItem(ZONE_KEY, z); } catch { /* ignore */ } };
 
   const loadProvider = useCallback(() => call<Provider>("football/live/provider").then(setProvider, () => setProvider(null)), []);
   useEffect(() => { const t = setTimeout(loadProvider, 0); return () => clearTimeout(t); }, [loadProvider]);
