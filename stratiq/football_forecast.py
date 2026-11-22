@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 from . import football_backtest as fb
 from . import football_intel as fi
 from . import football_intel_api as api
+from . import football_notify as notify
 from . import football_provider as fp
 from . import football_store
 from .football_jobs import system_principal
@@ -140,7 +141,10 @@ def generate_version(conn, fx: dict, checkpoint: str, reason: str, now: datetime
                         goal["expected_goals"][0], goal["expected_goals"][1], goal["p_over_2_5"], goal["p_btts"], json.dumps(goal["top_scorelines"][:5]), json.dumps(drivers, default=str),
                         json.dumps(warnings), json.dumps(rel["data_completeness"]), json.dumps(_provider_refs(conn, fx, snap, now), default=str), json.dumps(_change(prev, probs)))).fetchone()
     mark_official(conn, str(fx["id"]))
-    return {"status": "created", "version_no": cur["version_no"], "id": str(cur["id"]), "significant_change": bool((_change(prev, probs) or {}).get("significant"))}
+    change = _change(prev, probs)
+    with notify.guard(conn, "forecast_made"):
+        notify.forecast_made(conn, fx, cur["version_no"], (probs[0], probs[1], probs[2]), change, now)
+    return {"status": "created", "version_no": cur["version_no"], "id": str(cur["id"]), "significant_change": bool((change or {}).get("significant"))}
 
 
 def mark_official(conn, fixture_id: str) -> None:
@@ -170,6 +174,8 @@ def generate_pending(conn, workspace_id: str, now: datetime | None = None, days:
         if r["status"] == "created":
             out["created"] += 1
         elif r["status"] == "ineligible":
+            with notify.guard(conn, "cannot_forecast"):
+                notify.data_issue(conn, workspace_id, f"cannot_forecast:{f['id']}", f"Cannot forecast {f['home_team']} v {f['away_team']}", r["reason"], f, now)
             out["ineligible"].append({"fixture_id": str(f["id"]), "home": f["home_team"], "away": f["away_team"], "reason": r["reason"]})
     return out
 

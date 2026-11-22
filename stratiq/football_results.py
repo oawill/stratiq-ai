@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import football_intel_api as api
 from . import football_match as fm_
+from . import football_notify as notify
 from . import football_provider as fp
 from . import football_store
 from .football_history import season_label
@@ -132,6 +133,9 @@ def reconcile_fixture(conn, fx: dict, now: datetime | None = None) -> dict:
     rev, correction = _result_revision(conn, fx, now)
     hist = _history_row(conn, fx, now)
     if hist == "conflict":
+        with notify.guard(conn, "result_conflict"):
+            notify.data_issue(conn, wid, f"result_conflict:{fx['id']}:{fx['home_goals']}-{fx['away_goals']}", f"Result conflict: {fx['home_team']} v {fx['away_team']}",
+                              "The provider's score differs from a result already stored from another source. Nothing was changed or scored; please check the stored result.", fx, now)
         conn.execute("update football_fixtures set result_note=%s where id=%s", ("The provider's score differs from a result already stored from another source, so nothing was changed or scored. Check the stored result.", fx["id"]))
         return {"status": "conflict", "reason": "A different score for this match is already stored from another source. It was not overwritten and the forecast was not scored."}
     v = conn.execute("select * from football_prediction_versions where fixture_id=%s and is_official", (fx["id"],)).fetchone()
@@ -157,6 +161,10 @@ def reconcile_fixture(conn, fx: dict, now: datetime | None = None) -> dict:
         _feed_tracking(conn, wid, v, fx, correction)
         out |= {"version_no": v["version_no"], "log_loss": round(m["log_loss"], 4), "brier": round(m["brier"], 4), "correct": m["correct"]}
     football_store.refresh_teams(conn, wid, fx["competition"])
+    with notify.guard(conn, "result_events"):
+        notify.result_recorded(conn, fx, rev, correction, now)
+        if v is not None:
+            notify.evaluation_done(conn, fx, v["version_no"], m["log_loss"], m["correct"], (prev["correction_count"] + (1 if correction else 0)) if prev else 0, now)
     conn.execute("update football_fixtures set reconciled_home=%s, reconciled_away=%s, reconciled_at=%s, result_note=%s where id=%s",
                  (fx["home_goals"], fx["away_goals"], now, "Score corrected by the provider and re-scored." if correction else None, fx["id"]))
     return out

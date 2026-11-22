@@ -109,6 +109,49 @@ Code: `stratiq/football_results.py`, `stratiq/football_performance.py`, migratio
 * **Manual check:** `POST /api/v1/football/live/fixtures/{id}/reconcile` (members).
 * **Not done:** a result reaching `match_history` does not itself force an immediate re-forecast of upcoming matches involving those clubs; they pick it up at their next checkpoint.
 
-## Not included yet
+## Phase 4G: alerts, testing and deployment validation
 
-Notifications (new fixtures, new predictions, significant probability changes, results, evaluations, provider failures, data-quality issues) with optional email and push adapters (4G); lineups, odds, injuries and advanced statistics from the provider.
+Code: `stratiq/football_notify.py`, `stratiq/football_alerts_api.py`, migration `0021_football_notifications.sql` (dev only), `FootballAlerts.tsx` (on the Notifications page), `scripts/check_football_provider.py`.
+
+* **Alerts are opt-in and in-app.** Each person chooses categories, a competition and, optionally, up to 20 clubs (Notifications page, "Football alerts", or `GET|PUT /api/v1/football/live/alert-settings`). With no choices, nobody is told anything. Delivery goes through the existing in-app notifications, so a person's in-app switch, quiet hours (held back, not lost) and the 30-a-day cap apply.
+* **Categories:** new fixtures; new predictions (first forecast); significant probability changes (5 percentage points or more); final results (including provider corrections); prediction evaluation completed; provider failures (three failures in a row, once per outage); data quality (a result that conflicts with your uploaded data, a club name not recognised, a fixture that cannot be forecast, a result withdrawn). **Confirmed lineup changes** is listed but cannot be chosen: the provider plan supplies no lineups.
+* **Deduplication.** Every event is recorded once (`football_notification_events`, unique per workspace and key), whether or not anyone listens, and delivered once per person (unique per person and event, even after a notification is deleted). More than five new fixtures in one synchronisation become one summary event, which does not reach people who chose specific clubs. Events are kept 90 days.
+* **A notification problem never stops the pipeline:** event raising runs in its own savepoint and failures are logged and swallowed.
+* **Email and push are designed, not built.** A `Channel` adapter interface is consulted only for people who switched that channel on and only when the adapter reports itself available. Both adapters report "not available", so neither can be switched on and nothing leaves the application. A test proves a connected adapter would be used only for opted-in people and that a failing adapter cannot break in-app delivery.
+* **Readiness:** `GET /api/v1/football/live/readiness` lists, plainly, whether the tables exist, a provider key is set, a real fetch has ever succeeded, the provider is healthy, a scheduler secret is set and has acted, fixtures are fresh, and whether forecasts and scored results exist. Connectivity is "verified" only after a real synchronisation has completed.
+* **Real connectivity check (run it yourself):** `scripts/check_football_provider.py` makes one real request for the current season with the key in your environment, prints counts, statuses, rate-limit headers and any unrecognised club names, never prints the key and touches no database. Without a key it refuses to run.
+
+### Test coverage against the brief
+
+| Brief item | Where it is tested (all with mocked provider responses) |
+|---|---|
+| 1 Fixture ingestion, 2 normalisation | `test_football_live.py` (sync, status and name mapping, rejected rows) |
+| 3 Duplicate prevention | `test_football_live.py` (provider ids, adoption of uploaded fixtures, unique mappings) |
+| 4 Time zones | `test_football_live.py` (local day windows, Tokyo), `theme.test.ts` (formatting) |
+| 5 Postponement | `test_football_live.py`, `test_football_forecast.py` (stored, never forecast, reschedule) |
+| 6 Prediction generation, 7 versioning | `test_football_forecast.py` (every output, immutable versions, official marker) |
+| 8 Pre-kickoff boundaries | `test_football_forecast.py` (nothing at or after kickoff, database check, results dated today unused) |
+| 9 Reconciliation, 10 evaluation | `test_football_results.py` (scores, corrections, conflicts, withdrawals, idempotence) |
+| 11 Scheduler idempotency | `test_football_refresh.py` (claims, late runs, retries, overlap lock) |
+| 12 Provider outage and recovery | `test_football_live.py`, `test_football_refresh.py`, `test_football_notify.py` |
+| 13 Notification deduplication | `test_football_notify.py` |
+| 14 Light, Dark, System | **The application has only a dark theme.** `theme.test.ts` keeps the live screens to colour tokens so a future theme restyles them; nothing could be checked in Light or System. |
+
+### Acceptance criteria, honestly
+
+* Upcoming fixtures retrieved from a verified provider: **not yet demonstrated.** The adapter follows football-data.org's published API but has never talked to it. Run the check script, then a synchronisation.
+* Forecasts from the deployed validated model: forecasts use the latest backtest's tuned model (ensemble if present, else Dixon-Coles). Production has no backtest and no imported history of its own unless you import and run one.
+* Versions preserved, statuses updated, results verified, performance updated, provider failures harmless: built and tested with mocks.
+* No fabricated live data: nothing is shown without a provider or an upload behind it, and every empty state says so.
+
+### To go live (nothing here has been done; each step is yours or needs your approval)
+
+1. Apply migrations `0017` to `0021` to production (`node scripts/migrate.mjs` with the production URL, as before).
+2. In Vercel set `FOOTBALL_DATA_API_KEY` and `CRON_SECRET` (and confirm the provider's licence terms for your use).
+3. Run `scripts/check_football_provider.py` locally with the key.
+4. Import match history and run a backtest on the production workspace so forecasts use a tuned model.
+5. Deploy (this starts the two crons declared in `vercel.json`), then open `/api/v1/football/live/readiness`.
+
+## Not included
+
+Email and push delivery; lineups, odds, injuries and advanced statistics from the provider; Light and System themes (the app is dark only).

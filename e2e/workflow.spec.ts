@@ -1129,6 +1129,21 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page.getByText("Nothing matches those filters.")).toBeVisible();
   });
 
+  await test.step("football alerts: everything starts off, lineup alerts are shown as unavailable, and choices are saved", async () => {
+    await page.goto("/dashboard/notifications");
+    await expect(page.getByRole("heading", { name: "Football alerts" })).toBeVisible();
+    await expect(page.getByText("All off")).toBeVisible();                                           // opt-in: nothing is switched on for a new person
+    await expect(page.getByLabel(/Confirmed lineup changes/)).toBeDisabled();
+    await expect(page.getByText(/supplies no lineups/)).toBeVisible();
+    await page.getByLabel(/Final match results/).check();
+    await page.getByLabel("Add a club").selectOption("Arsenal");
+    await page.getByRole("button", { name: "Save football alerts" }).click();
+    await expect(page.getByText("Saved.", { exact: true }).last()).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel(/Final match results/)).toBeChecked();
+    await expect(page.getByRole("button", { name: "Remove Arsenal" })).toBeVisible();
+  });
+
   await test.step("settings: preferences are saved and say that notifications stay in the app", async () => {
     await page.goto("/dashboard/settings");
     await expect(page.getByText(/nothing is ever sent outside the app/)).toBeVisible();

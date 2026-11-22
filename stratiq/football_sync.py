@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta, timezone
 
+from . import football_notify as notify
 from . import football_provider as fp
 from .football_history import season_label
 
@@ -195,8 +196,20 @@ def sync_workspace(conn, workspace_id: str, trigger: str = "manual", competition
             counts[upsert_fixture(conn, workspace_id, f, job, now)] += 1
     except fp.ProviderError as e:
         finish_job(conn, job, "failed", counts, {"warnings": warnings[:20]}, str(e), now)
+        h = health(conn)
+        if h["consecutive_failures"] >= PAUSE_AFTER_FAILURES:
+            with notify.guard(conn, "provider_failing"):
+                notify.provider_failing(conn, workspace_id, h["consecutive_failures"], h["last_success_at"], fp.scrub(str(e)), now)
         return {"status": "failed", "message": fp.scrub(str(e)), "retryable": e.retryable, "window": [str(frm), str(to)], **counts, "job_id": job}
     finish_job(conn, job, "complete", counts, {"warnings": sorted(set(warnings))[:20], "seasons": years, "data_fetched_at": fetched_at.isoformat()}, None, now)
+    with notify.guard(conn, "sync_events"):
+        fresh = conn.execute("""select f.id, f.home_team, f.away_team, f.fixture_date from football_fixture_status_history h join football_fixtures f on f.id=h.fixture_id
+                                where h.sync_job_id=%s and h.old_status is null and f.status='scheduled' and f.kickoff_utc > %s order by f.kickoff_utc""", (job, now)).fetchall()
+        notify.new_fixtures(conn, workspace_id, fresh, job, now)
+        names = sorted({w.split(": ", 1)[1] for w in warnings if w.startswith("Unrecognised club name: ")})
+        if names:
+            notify.data_issue(conn, workspace_id, "unknown_clubs:" + ",".join(names)[:200], "Club names not recognised",
+                              f"The fixture provider used names that are not in the club dictionary: {', '.join(names)}. Those fixtures cannot be forecast until the names are mapped.", now=now)
     return {"status": "complete", "window": [str(frm), str(to)], **counts, "warnings": sorted(set(warnings))[:20], "data_fetched_at": fetched_at, "job_id": job,
             "note": None if counts["fetched"] else "The provider returned no fixtures in this window (for example between seasons)."}
 
