@@ -95,7 +95,7 @@ def suggested(conn, p) -> list[str]:
     ms = ctx.history()
     out: list[str] = []
     if ms:
-        up = conn.execute("select home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s order by fixture_date limit 1", (p.workspace_id, ctx.today)).fetchone()
+        up = conn.execute("select home_team, away_team from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s order by fixture_date limit 1", (p.workspace_id, ctx.today)).fetchone()
         last = ms[-1]
         home, away = (up["home_team"], up["away_team"]) if up else (last[1], last[2])
         out += [f"Why is {home} favoured over {away}?", f"How has {home} performed at home?", f"What are the likeliest scorelines for {home} v {away}?", "How well has the model performed historically?", "How fresh is my data?"]

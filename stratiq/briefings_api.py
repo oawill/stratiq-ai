@@ -98,7 +98,7 @@ def sports_sections(conn, wid: str, uid: str, start: datetime, end: datetime, no
     # --- watched clubs' next imported fixtures (observed)
     items = []
     for t in sorted(watched):
-        nf = conn.execute("select fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s and fixture_date <= %s and (home_team=%s or away_team=%s) order by fixture_date limit 1",
+        nf = conn.execute("select fixture_date, home_team, away_team from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s and fixture_date <= %s and (home_team=%s or away_team=%s) order by fixture_date limit 1",
                           (wid, today, today + timedelta(days=14), t, t)).fetchone()
         if nf:
             items.append(_item(f"{t}: next imported fixture is {nf['home_team']} v {nf['away_team']} on {nf['fixture_date'].isoformat()}.", "observed", "Fixtures you imported", "/dashboard/watchlists", iso))

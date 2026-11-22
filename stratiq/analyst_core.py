@@ -188,14 +188,14 @@ def plan(question: str, known: set[str], state: dict, has_history: bool) -> Plan
 
 # ------------------------------------------------------------------ execution (with the few runtime resolutions a plan needs)
 def _next_fixture_for(ctx: at.Ctx, team: str) -> dict | None:
-    return ctx.conn.execute("select fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s and (home_team=%s or away_team=%s) order by fixture_date limit 1",
+    return ctx.conn.execute("select fixture_date, home_team, away_team from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s and (home_team=%s or away_team=%s) order by fixture_date limit 1",
                             (ctx.p.workspace_id, ctx.today, team, team)).fetchone()
 
 
 def _orient_pair(ctx: at.Ctx, a: str, b: str) -> tuple[str, str, str | None]:
     """Which club is at home. An imported fixture decides; otherwise the first-named club is treated as home, and the answer says so."""
     for home, away in ((a, b), (b, a)):
-        r = ctx.conn.execute("select fixture_date from football_fixtures where workspace_id=%s and home_team=%s and away_team=%s and fixture_date >= %s order by fixture_date limit 1", (ctx.p.workspace_id, home, away, ctx.today)).fetchone()
+        r = ctx.conn.execute("select fixture_date from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and home_team=%s and away_team=%s and fixture_date >= %s order by fixture_date limit 1", (ctx.p.workspace_id, home, away, ctx.today)).fetchone()
         if r:
             return home, away, r["fixture_date"].isoformat()
     return a, b, None

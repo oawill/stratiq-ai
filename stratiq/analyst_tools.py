@@ -192,11 +192,11 @@ def fixture_details(ctx: Ctx, a: FixtureArgs) -> dict:
     kick = a.fixture_date
     scheduled = None
     if kick:
-        scheduled = ctx.conn.execute("select fixture_date from football_fixtures where workspace_id=%s and fixture_date=%s and home_team=%s and away_team=%s", (ctx.p.workspace_id, kick, home, away)).fetchone()
+        scheduled = ctx.conn.execute("select fixture_date from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date=%s and home_team=%s and away_team=%s", (ctx.p.workspace_id, kick, home, away)).fetchone()
         if not scheduled:
             return unavailable(f"No imported fixture has {home} at home to {away} on {kick.isoformat()}.")
     else:
-        row = ctx.conn.execute("select fixture_date from football_fixtures where workspace_id=%s and home_team=%s and away_team=%s and fixture_date >= %s order by fixture_date limit 1",
+        row = ctx.conn.execute("select fixture_date from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and home_team=%s and away_team=%s and fixture_date >= %s order by fixture_date limit 1",
                                (ctx.p.workspace_id, home, away, ctx.today)).fetchone()
         scheduled, kick = row, (row["fixture_date"] if row else None)
     cutoff = min(kick, ctx.today) if kick else ctx.today
@@ -389,7 +389,7 @@ def compare_simulations(ctx: Ctx, a: CompareSimArgs) -> dict:
 def source_freshness(ctx: Ctx, a: NoArgs) -> dict:
     wid = ctx.p.workspace_id
     ms = _stored(ctx.conn, wid, fia.COMPETITION)
-    up = ctx.conn.execute("select count(*) n from football_fixtures where workspace_id=%s and fixture_date >= %s", (wid, ctx.today)).fetchone()["n"]
+    up = ctx.conn.execute("select count(*) n from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s", (wid, ctx.today)).fetchone()["n"]
     last = ctx.conn.execute("select max(created_at) t from match_imports where workspace_id=%s", (wid,)).fetchone()["t"]
     fr = fia.freshness_of(ms, up, last.isoformat() if last else None, ctx.today)
     srcs = [clean_deep({"name": r["name"], "kind": r["kind"], "provider": r["provider"], "source_url": r["source_url"], "licence_as_stated": r["source_licence"], "retrieved_on": r["retrieved_on"].isoformat() if r["retrieved_on"] else None,

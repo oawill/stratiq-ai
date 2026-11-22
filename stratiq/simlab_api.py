@@ -104,7 +104,7 @@ def context(p: Auth, conn=Depends(get_conn)):
     """What the simulator can start from: clubs in the imported history and the upcoming imported fixtures."""
     ms = _plain(_stored(conn, p.workspace_id, fia.COMPETITION))
     teams = sorted({t for _, h, a, *_ in ms for t in (h, a)})
-    fx = conn.execute("select fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s order by fixture_date limit 40", (p.workspace_id, _today())).fetchall()
+    fx = conn.execute("select fixture_date, home_team, away_team from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s order by fixture_date limit 40", (p.workspace_id, _today())).fetchall()
     run = fia._latest_run(conn, p)
     return {"has_history": bool(ms), "teams": teams, "fixtures": [{"date": r["fixture_date"], "home": r["home_team"], "away": r["away_team"]} for r in fx],
             "settings_tuned": bool(run and run["tuning"]), "history_through": max(m[0] for m in ms).isoformat() if ms else None}
@@ -120,7 +120,7 @@ def sports_run(body: SportsRunBody, p: Auth, conn=Depends(get_conn)):
         raise HTTPException(404, "Import some match history first (Data page, Historical Football Data).")
     scheduled = False
     if body.fixture_date:
-        row = conn.execute("select 1 from football_fixtures where workspace_id=%s and fixture_date=%s and home_team=%s and away_team=%s",
+        row = conn.execute("select 1 from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date=%s and home_team=%s and away_team=%s",
                            (p.workspace_id, body.fixture_date, body.home, body.away)).fetchone()
         if not row:
             raise HTTPException(422, "That fixture is not among the imported upcoming fixtures. Leave the date empty to simulate a hypothetical matchup.")

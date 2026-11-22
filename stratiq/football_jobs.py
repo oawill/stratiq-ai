@@ -15,7 +15,7 @@ from fastapi import HTTPException
 from . import football_backtest as fb
 from . import football_intel_api as api
 from . import football_monitor as mon
-from . import football_store
+from . import football_provider, football_store, football_sync
 from .football_history import season_label
 
 
@@ -95,7 +95,7 @@ def forecast_upcoming(conn, workspace_id: str, days: int = 14, limit: int = 20, 
     """Store a tracked forecast for each upcoming fixture so it can be scored once the result arrives."""
     from datetime import timedelta
     today = today or datetime.now(timezone.utc).date()
-    fx = conn.execute("select fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s and fixture_date <= %s order by fixture_date limit %s",
+    fx = conn.execute("select fixture_date, home_team, away_team from football_fixtures where status = 'scheduled' and (kickoff_utc is null or kickoff_utc > now()) and workspace_id=%s and fixture_date >= %s and fixture_date <= %s order by fixture_date limit %s",
                       (workspace_id, today, today + timedelta(days=days), limit)).fetchall()
     if not fx:
         return {"fixtures": 0, "forecast": 0, "errors": []}
@@ -126,6 +126,9 @@ def run_workspace(conn, workspace_id: str, trigger: str, allow_retrain: bool = T
     out: dict = {"workspace_id": workspace_id}
     try:
         out["scored"] = football_store.reconcile(conn, workspace_id)
+        if football_provider.configured():       # a provider outage is reported here but never stops the rest of the cycle
+            sy = football_sync.sync_workspace(conn, workspace_id, "schedule")
+            out["live_sync"] = {k: sy.get(k) for k in ("status", "fetched", "created", "updated", "unchanged", "message")}
         out["upcoming"] = forecast_upcoming(conn, workspace_id, today=today)
         out["monitor"] = monitor(conn, workspace_id, today)
         out["retrain"] = retrain(conn, workspace_id, False, today) if allow_retrain else {"status": "skipped", "reason": "Another workspace was retrained in this run."}

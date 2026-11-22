@@ -82,7 +82,7 @@ def factors(p: Auth, conn=Depends(get_conn)):
     """Every factor group, where it comes from, and whether this workspace has data behind it."""
     n_res = conn.execute("select count(*) n, min(match_date) a, max(match_date) b from match_history where workspace_id=%s", (p.workspace_id,)).fetchone()
     st = conn.execute("select count(*) n, count(home_xg) xg, count(odds_home) odds from football_team_statistics where workspace_id=%s", (p.workspace_id,)).fetchone()
-    fx = conn.execute("select count(*) n from football_fixtures where workspace_id=%s and fixture_date >= current_date", (p.workspace_id,)).fetchone()["n"]
+    fx = conn.execute("select count(*) n from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= current_date", (p.workspace_id,)).fetchone()["n"]
     have = {"results": n_res["n"] > 0, "xg": st["xg"] > 0, "odds": st["odds"] > 0, "venue": n_res["n"] > 0, "never": False}
     sources = conn.execute(
         """select distinct on (kind) kind, name, provider, reference, licence_note, coverage, quality, created_at from football_data_sources where workspace_id=%s
@@ -289,11 +289,11 @@ def upcoming(p: Auth, conn=Depends(get_conn), days: int = Query(14, ge=1, le=60)
     today = _today()
     fx = conn.execute(
         """select f.fixture_date, f.home_team, f.away_team, f.season from football_fixtures f
-           where f.workspace_id=%s and f.fixture_date between %s and %s
+           where f.status = 'scheduled' and (f.kickoff_utc is null or f.kickoff_utc > now()) and f.workspace_id=%s and f.fixture_date between %s and %s
              and not exists (select 1 from match_history m where m.workspace_id=f.workspace_id and m.match_date=f.fixture_date and m.home_team=f.home_team and m.away_team=f.away_team)
            order by f.fixture_date, f.home_team limit %s""", (p.workspace_id, today, today + timedelta(days=days), limit)).fetchall()
     if not fx:
-        total = conn.execute("select count(*) n from football_fixtures where workspace_id=%s", (p.workspace_id,)).fetchone()["n"]
+        total = conn.execute("select count(*) n from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s", (p.workspace_id,)).fetchone()["n"]
         return {"fixtures": [], "note": "No upcoming fixtures in the next %d days." % days + ("" if total else " Import a fixtures file (future-dated rows in the same layout as results) on the Data page to see them here.")}
     ms = _history(conn, p)
     run = _latest_run(conn, p)
@@ -349,7 +349,7 @@ def freshness_of(rows: list, upcoming: int, last_import, today: date) -> dict:
 def freshness(p: Auth, conn=Depends(get_conn)):
     rows = _stored(conn, p.workspace_id, COMPETITION)
     today = _today()
-    up = conn.execute("select count(*) n from football_fixtures where workspace_id=%s and fixture_date >= %s", (p.workspace_id, today)).fetchone()["n"]
+    up = conn.execute("select count(*) n from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s", (p.workspace_id, today)).fetchone()["n"]
     last = conn.execute("select max(created_at) t from match_imports where workspace_id=%s", (p.workspace_id,)).fetchone()["t"]
     return freshness_of(rows, up, last, today)
 
@@ -361,7 +361,7 @@ def schedule(p: Auth, conn=Depends(get_conn), results: int = Query(20, ge=1, le=
     res = conn.execute(
         "select season, match_date, home_team, away_team, home_goals, away_goals from match_history where workspace_id=%s and competition=%s order by match_date desc, home_team limit %s",
         (p.workspace_id, COMPETITION, results)).fetchall()
-    fx = conn.execute("select season, fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s and fixture_date <= %s order by fixture_date, home_team",
+    fx = conn.execute("select season, fixture_date, home_team, away_team from football_fixtures where status = 'scheduled' and (kickoff_utc is null or kickoff_utc > now()) and workspace_id=%s and fixture_date >= %s and fixture_date <= %s order by fixture_date, home_team",
                       (p.workspace_id, today, today + timedelta(days=days))).fetchall()
     tracked = {(r["fixture_date"], r["home_team"], r["away_team"]) for r in conn.execute(
         "select distinct fixture_date, home_team, away_team from football_predictions where workspace_id=%s and kind='live' and fixture_date >= %s", (p.workspace_id, today)).fetchall()}

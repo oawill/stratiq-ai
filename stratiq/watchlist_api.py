@@ -76,7 +76,7 @@ def options(p: Auth, conn=Depends(get_conn)):
     """Clubs in the imported history, upcoming imported fixtures, and which entity types each domain supports."""
     ms = _history(conn, p.workspace_id)
     teams = sorted({t for _, h, a, *_ in ms for t in (h, a)})
-    fx = conn.execute("select fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s order by fixture_date limit 60", (p.workspace_id, _today())).fetchall()
+    fx = conn.execute("select fixture_date, home_team, away_team from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s order by fixture_date limit 60", (p.workspace_id, _today())).fetchall()
     return {"has_history": bool(ms), "teams": teams, "fixtures": [{"date": r["fixture_date"], "home": r["home_team"], "away": r["away_team"]} for r in fx], "kinds": {d: list(k) for d, k in KINDS_BY_DOMAIN.items()},
             "feeds": {"sports": "Premier League results and fixtures you import", "business": "none", "politics": "none", "markets": "none"}}
 
@@ -101,7 +101,7 @@ def add(body: AddBody, p: Auth, conn=Depends(get_conn)):
         else:
             if not (body.home and body.away and body.date):
                 raise HTTPException(422, "A fixture needs a home club, an away club and a date")
-            row = conn.execute("select 1 from football_fixtures where workspace_id=%s and fixture_date=%s and home_team=%s and away_team=%s", (p.workspace_id, body.date, body.home, body.away)).fetchone()
+            row = conn.execute("select 1 from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date=%s and home_team=%s and away_team=%s", (p.workspace_id, body.date, body.home, body.away)).fetchone()
             if not row:
                 raise HTTPException(422, "That fixture is not among the imported upcoming fixtures")
             key, label = f"{body.date.isoformat()}|{body.home}|{body.away}", f"{body.home} vs {body.away} ({body.date.isoformat()})"
@@ -204,7 +204,7 @@ def listing(p: Auth, conn=Depends(get_conn), domain: Literal["sports", "business
     rows_full = _stored(conn, p.workspace_id, COMPETITION) if need_sports else []
     ms = sorted(_plain(rows_full), key=lambda m: (m[0], m[1], m[2]))
     fixtures = [{"date": r["fixture_date"], "home": r["home_team"], "away": r["away_team"]} for r in conn.execute(
-        "select fixture_date, home_team, away_team from football_fixtures where workspace_id=%s and fixture_date >= %s order by fixture_date", (p.workspace_id, today)).fetchall()] if need_sports else []
+        "select fixture_date, home_team, away_team from football_fixtures where status not in ('cancelled','postponed','suspended') and workspace_id=%s and fixture_date >= %s order by fixture_date", (p.workspace_id, today)).fetchall()] if need_sports else []
     settings = _settings(_latest_run(conn, p)) if need_sports else {}
     out = []
     for it in items:
