@@ -6,6 +6,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { call } from "@/lib/client";
 import { Badge, Panel } from "../../ui";
 import { field } from "../../analysis";
+import { Automation } from "./Automation";
 import { FixtureList } from "./FixtureList";
 import { HistoryTab } from "./HistoryTab";
 import { MatchIntel } from "./MatchIntel";
@@ -64,6 +65,11 @@ export function LivePredictions({ tab, fixture }: { tab: TabId; fixture?: string
         </div>
         {msg && <p role="status" className="mt-2 text-xs text-muted">{msg}</p>}
       </Panel>
+
+      <details className="group">
+        <summary className="cursor-pointer text-sm font-semibold text-violet underline-offset-2 hover:underline">Automatic forecasts and refresh schedule</summary>
+        <div className="mt-2"><Automation tz={tz} /></div>
+      </details>
 
       <nav aria-label="Live predictions sections" className="flex max-w-full flex-wrap gap-2">
         {TABS.map((t) => (

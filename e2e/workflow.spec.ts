@@ -1162,6 +1162,15 @@ test("football intelligence: each data type shows its own requirements, then for
     await expect(page.getByText(/No forecasts have been stored yet/)).toBeVisible();
     await tabs.getByRole("link", { name: "Completed matches" }).click();
     await expect(page.getByRole("heading", { name: "Last 30 days" })).toBeVisible();
+    await page.getByText("Automatic forecasts and refresh schedule").click();
+    await expect(page.getByText("No scheduler running")).toBeVisible();                 // honest: nothing runs by itself until a scheduler is configured
+    await expect(page.getByText("No scheduled matches in the next 7 days.")).toBeVisible();
+    await page.getByLabel("12 hours").check();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+    await page.reload();
+    await page.getByText("Automatic forecasts and refresh schedule").click();
+    await expect(page.getByLabel("12 hours")).toBeChecked();
     await page.getByLabel("Time zone").selectOption("Asia/Tokyo");
     await page.reload();
     await expect(page.getByLabel("Time zone")).toHaveValue("Asia/Tokyo");
@@ -1174,8 +1183,8 @@ test("football intelligence: each data type shows its own requirements, then for
     await page.goto("/dashboard/sports/football/matches/00000000-0000-4000-8000-000000000000");
     await expect(page.getByText("Fixture not found")).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to Live Predictions" })).toBeVisible();
-    const res = await page.goto("/dashboard/sports/football/matches/not-an-id");
-    expect(res?.status()).toBe(404);
+    await page.goto("/dashboard/sports/football/matches/not-an-id");
+    await expect(page.getByRole("heading", { name: "This page could not be found" })).toBeVisible();      // streamed pages show the 404 page with a 200 status, so the page is checked, not the code
     await page.goto("/sports/football/matches/00000000-0000-4000-8000-000000000000");
     await expect(page).toHaveURL(/\/dashboard\/sports\/football\/matches\//);
   });

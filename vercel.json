@@ -1,4 +1,24 @@
 {
-  "rewrites": [{ "source": "/api/v1/:path*", "destination": "/api/index" }],
-  "functions": { "api/index.py": { "maxDuration": 60, "includeFiles": "stratiq/**" } }
+  "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "/api/index"
+    }
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "includeFiles": "stratiq/**"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/v1/football/jobs/tick",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/v1/football/jobs/scheduled",
+      "schedule": "0 4 * * *"
+    }
+  ]
 }

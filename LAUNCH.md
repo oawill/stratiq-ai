@@ -48,7 +48,7 @@ Everything in the code is ready and inactive until you do the steps below. Nothi
 **Needs you (nothing below has been done, and none of it can be done from the code)**
 
 1. **Real football accuracy.** Import your ten Premier League seasons (Data, Historical Football Data), then Sports, Football intelligence, Model performance, Run chronological backtest. Until then no accuracy figure for any model is real.
-2. **Scheduled football jobs.** Set `CRON_SECRET` (16+ random characters) in the Vercel project and add this to `vercel.json`, then redeploy: `"crons": [{ "path": "/api/v1/football/jobs/scheduled", "schedule": "0 6 * * *" }]`. Until you do, nothing runs by itself (see FOOTBALL.md, Automation).
+2. **Scheduled football jobs.** `vercel.json` now declares two crons (every 10 minutes for the light live tick, daily at 04:00 UTC for the heavy cycle). They take effect on the next deploy and need Vercel Pro (Hobby allows daily only). Set `CRON_SECRET` (16+ random characters) in the Vercel project first: without it both endpoints do not exist and nothing runs. Live fixtures also need `FOOTBALL_DATA_API_KEY` (see LIVE_FOOTBALL.md).
 3. **Stripe.** Follow BILLING.md steps 1 to 3 with a test key, complete a test purchase, check the webhook and the billing portal, and only then set `BILLING_ENFORCED=1`. The real Stripe round trip has never been exercised.
 4. **Domain, email, legal**: steps 1 to 6 above (own the domain, DNS and env vars, Resend, lawyer-finished Terms and Privacy).
 5. **Real-device check of the carousel.** Swipe, the menu and the Solutions dropdown on an actual iPhone (Safari) and an Android phone. Automated checks cover Chromium with emulated touch only.

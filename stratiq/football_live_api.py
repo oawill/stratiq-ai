@@ -5,15 +5,18 @@ Reading needs a signed-in member of the workspace; synchronising needs write acc
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from . import football_forecast as ff
 from . import football_match as fmatch
 from . import football_provider as fp
+from . import football_refresh as fr
 from . import football_sync as sync
 from .db import get_conn
 from .security import Auth, require_write
@@ -250,3 +253,51 @@ def forecast_history(p: Auth, conn=Depends(get_conn), team: str | None = Query(N
                    {"fixture_id": str(v["fixture_id"]), "home_team": v["home_team"], "away_team": v["away_team"], "fixture_status": v["fixture_status"], "time_zone": z.key,
                     "final_score": {"home": v["home_goals"], "away": v["away_goals"]} if v["home_goals"] is not None else None})
     return {"versions": out, "total": total}
+
+
+class SettingsBody(BaseModel):
+    checkpoint_minutes: list[int] = Field(min_length=1, max_length=8)
+    auto_forecast: bool = True
+
+
+@router.get("/settings")
+def get_settings(p: Auth, conn=Depends(get_conn)):
+    """The forecast refresh checkpoints (minutes before kickoff) and whether forecasts are made automatically."""
+    return {**fr.get_settings(conn, p.workspace_id), "defaults": list(fr.DEFAULT_CHECKPOINTS), "limits": {"min_minutes": fr.MIN_CHECKPOINT, "max_minutes": fr.MAX_CHECKPOINT, "max_count": 8},
+            "lineup_refresh": "Not available: the fixture provider plan in use supplies no lineups, so lineup changes cannot trigger a refresh."}
+
+
+@router.put("/settings")
+def put_settings(body: SettingsBody, p: Auth, conn=Depends(get_conn)):
+    require_write(p)
+    try:
+        out = fr.save_settings(conn, p.workspace_id, p.user_id, body.checkpoint_minutes, body.auto_forecast)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from None
+    conn.execute("insert into audit_logs (workspace_id,user_id,action,detail) values (%s,%s,'football.live_settings',%s)",
+                 (p.workspace_id, p.user_id, json.dumps({"checkpoint_minutes": out["checkpoint_minutes"], "auto_forecast": out["auto_forecast"]})))
+    return out
+
+
+@router.get("/schedule")
+def schedule(p: Auth, conn=Depends(get_conn), limit: int = Query(20, ge=1, le=50)):
+    """What the automation will do next: for each fixture in the next seven days, the next checkpoint still to come, plus when it last ran and whether a scheduler is configured."""
+    now = sync.utcnow()
+    cfg = fr.get_settings(conn, p.workspace_id)
+    fx = conn.execute("""select id, home_team, away_team, kickoff_utc from football_fixtures where workspace_id=%s and status='scheduled' and kickoff_utc > %s and kickoff_utc <= %s
+                         order by kickoff_utc limit %s""", (p.workspace_id, now, now + timedelta(days=7), limit)).fetchall()
+    handled = {}
+    for r in conn.execute("select fixture_id, kickoff_utc, checkpoint_minutes from football_refresh_runs where fixture_id = any(%s) and outcome in ('created','unchanged','ineligible','skipped_late')",
+                          ([f["id"] for f in fx],)).fetchall() if fx else []:
+        handled.setdefault((r["fixture_id"], r["kickoff_utc"]), set()).add(r["checkpoint_minutes"])
+    items = []
+    for f in fx:
+        nxt = fr.next_checkpoint(f["kickoff_utc"], now, cfg["checkpoint_minutes"], handled.get((f["id"], f["kickoff_utc"]), set()))
+        items.append({"fixture_id": str(f["id"]), "home_team": f["home_team"], "away_team": f["away_team"], "kickoff_utc": f["kickoff_utc"],
+                      "next_refresh_at": nxt[1] if nxt else None, "next_refresh_label": f"{fr.describe(nxt[0])} before kickoff" if nxt else None})
+    last = conn.execute("select started_at, status, detail from football_job_runs where workspace_id=%s and kind='live' order by started_at desc limit 1", (p.workspace_id,)).fetchone()
+    normal, live = fr.sync_intervals()
+    return {"settings": cfg, "upcoming": items, "last_run": {"at": last["started_at"], "status": last["status"]} if last else None,
+            "scheduler_configured": len(os.environ.get("CRON_SECRET", "")) >= 16, "provider_configured": fp.configured(),
+            "fixture_sync_every_minutes": {"normal": int(normal.total_seconds() // 60), "around_kickoff": int(live.total_seconds() // 60)},
+            "note": "Automation runs only when a scheduler calls it. Until then nothing refreshes by itself; a person can still request a forecast from the match page."}

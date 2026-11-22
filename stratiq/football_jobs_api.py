@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from . import football_jobs as jobs
+from . import football_refresh
 from .db import get_conn
 from .security import Auth, require_write
 
@@ -51,17 +52,29 @@ def run_retrain(body: RetrainBody, p: Auth, conn=Depends(get_conn)):
     return out
 
 
-@router.post("/scheduled")
-def scheduled(authorization: Annotated[str | None, Header()] = None, conn=Depends(get_conn)):
-    """Called by a scheduler: one cycle for every workspace with match history."""
+def _scheduler_only(authorization: str | None) -> None:
     secret = os.environ.get("CRON_SECRET", "")
     if len(secret) < 16:
         raise HTTPException(404, "Not found")
     token = (authorization or "").removeprefix("Bearer ").strip()
     if not hmac.compare_digest(token.encode(), secret.encode()):
         raise HTTPException(401, "Unauthorized")
+
+
+@router.post("/scheduled")
+def scheduled(authorization: Annotated[str | None, Header()] = None, conn=Depends(get_conn)):
+    """Called by a scheduler once a day: one heavy cycle for every workspace with match history."""
+    _scheduler_only(authorization)
     return jobs.run_all(conn, "schedule")
+
+
+@router.post("/tick")
+def tick(authorization: Annotated[str | None, Header()] = None, conn=Depends(get_conn)):
+    """Called by a scheduler every few minutes: the light live pass (fixture sync when due, first forecasts, checkpoint refreshes). Safe to call as often as you like."""
+    _scheduler_only(authorization)
+    return football_refresh.tick_all(conn)
 
 
 # Vercel Cron issues GET requests.
 router.add_api_route("/scheduled", scheduled, methods=["GET"], include_in_schema=False)
+router.add_api_route("/tick", tick, methods=["GET"], include_in_schema=False)

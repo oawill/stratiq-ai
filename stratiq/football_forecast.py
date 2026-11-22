@@ -27,7 +27,7 @@ MIN_MATCHES = 5                 # a club with fewer earlier matches in the histo
 SIGNIFICANT_CHANGE = 0.05       # a move of 5 percentage points in any outcome counts as significant
 HISTORY_STALE_DAYS = 14
 LABEL = "Model estimate made before kickoff. A probability is not a prediction that something will happen, and this is not betting or financial advice."
-CHECKPOINTS = ("discovery", "h48", "h24", "h6", "h1", "reschedule", "lineup", "manual")
+CHECKPOINTS = ("discovery", "h48", "h24", "h6", "h1", "scheduled", "reschedule", "lineup", "manual")
 
 
 def production_model(run) -> str:
@@ -111,7 +111,10 @@ def generate_version(conn, fx: dict, checkpoint: str, reason: str, now: datetime
     data_sha = fb.data_sha([m for m in ms if m[0] < cutoff])
     p = system_principal(wid)
     mv = api._version(conn, p, name, {"model": name, "settings": api._light(settings)}, data_sha)
-    sha = hashlib.sha256(json.dumps({"snapshot": snap["sha256"], "model_version": mv, "model": name, "kickoff": fx["kickoff_utc"].isoformat()}, sort_keys=True).encode()).hexdigest()
+    # "Has anything changed?" depends on the results used, the uploaded statistics used, the model and the kickoff time. It deliberately does not depend on the calendar day:
+    # a snapshot's day-based fields (days of rest) move every day, and a refresh a day later with nothing new known should store nothing.
+    stats_digest = hashlib.sha256(json.dumps([[str(x["date"]), x["home"], x["away"], x.get("home_xg"), x.get("away_xg"), x.get("odds_home")] for x in (stats or []) if x["date"] < cutoff], default=str).encode()).hexdigest()
+    sha = hashlib.sha256(json.dumps({"results": data_sha, "statistics": stats_digest, "model_version": mv, "model": name, "kickoff": fx["kickoff_utc"].isoformat()}, sort_keys=True).encode()).hexdigest()
 
     conn.execute("select pg_advisory_xact_lock(hashtext(%s))", (str(fx["id"]),))          # one forecast writer per fixture at a time
     prev = conn.execute("select * from football_prediction_versions where fixture_id=%s order by version_no desc limit 1", (fx["id"],)).fetchone()
@@ -149,7 +152,7 @@ def mark_official(conn, fixture_id: str) -> None:
         conn.execute("update football_prediction_versions set is_official=true where id=%s and not is_official", (r["id"],))
 
 
-def generate_pending(conn, workspace_id: str, now: datetime | None = None, days: int = 14, limit: int = 10, max_seconds: float = 40.0) -> dict:
+def generate_pending(conn, workspace_id: str, now: datetime | None = None, days: int = 14, limit: int = 10, max_seconds: float = 40.0, loaded=None) -> dict:
     """First forecast for scheduled fixtures that have none. Bounded in number and time so a scheduled run always finishes."""
     now = now or datetime.now(timezone.utc)
     fx = conn.execute("""select * from football_fixtures f where workspace_id=%s and status='scheduled' and kickoff_utc > %s and kickoff_utc <= %s
@@ -158,7 +161,7 @@ def generate_pending(conn, workspace_id: str, now: datetime | None = None, days:
     out = {"considered": len(fx), "created": 0, "ineligible": [], "deferred": 0}
     if not fx:
         return out
-    loaded, start = _load(conn, workspace_id), time.monotonic()
+    loaded, start = loaded or _load(conn, workspace_id), time.monotonic()
     for i, f in enumerate(fx):
         if time.monotonic() - start > max_seconds:
             out["deferred"] = len(fx) - i

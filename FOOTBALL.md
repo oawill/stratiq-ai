@@ -42,7 +42,7 @@ Nothing runs by itself. The pieces are there:
 
 - `POST /api/v1/football/jobs/monitor` and `/retrain` (signed-in users with write access), and `GET /api/v1/football/jobs/status`; the **Model operations** tab uses them.
 - `GET|POST /api/v1/football/jobs/scheduled` runs one cycle for every workspace with match history: score finished forecasts, store a tracked forecast for each fixture in the next 14 days, check drift, retrain if due (at most one workspace per call, because a retrain takes tens of seconds). It exists only when the `CRON_SECRET` environment variable (16+ characters) is set, and requires `Authorization: Bearer <CRON_SECRET>`.
-- To switch it on, set `CRON_SECRET` in the Vercel project and add a cron entry to `vercel.json`, for example `"crons": [{ "path": "/api/v1/football/jobs/scheduled", "schedule": "0 6 * * *" }]`. This was deliberately not added: it changes deployment configuration. A retrain can approach the 60-second function limit on ten seasons; on a long-lived host run the same cycle with a cron job that calls the endpoint.
+- Since Phase 4E `vercel.json` declares the crons (see LIVE_FOOTBALL.md). They run only after a deploy and once `CRON_SECRET` is set in the Vercel project. A retrain can approach the 60-second function limit on ten seasons; on a long-lived host run the same cycle with a cron job that calls the endpoint.
 - Every run is recorded in `football_job_runs` (migration `0011_football_jobs.sql`).
 
 ## Data and licensing
